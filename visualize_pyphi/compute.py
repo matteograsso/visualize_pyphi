@@ -5,7 +5,7 @@ from pyphi import relations as rels
 from itertools import product
 import numpy as np
 from tqdm.auto import tqdm
-
+import random
 
 def add_node_labels(mice, system):
     mice.node_labels = tuplle()
@@ -24,7 +24,7 @@ def unfold_separated_ces(system):
     return pyphi.models.CauseEffectStructure(mices)
         
     
-def compute_relations(subsystem, ces, max_k=3):
+def compute_relations(subsystem, ces, max_k=3, num_relations=False):
     ks_relations = []
     for k in range(2, max_k + 1):
         relata = [
@@ -32,6 +32,10 @@ def compute_relations(subsystem, ces, max_k=3):
             for mices in itertools.combinations(ces, k)
             if all([mice.phi > 0 for mice in mices])
         ]
+
+        if num_relations:
+            relata = random.sample(relata, num_relations) 
+
         k_relations = [
             rels.relation(relatum)
             for relatum in (tqdm(relata) if len(relata) > 5000 else relata)
