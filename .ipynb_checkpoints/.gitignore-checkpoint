@@ -1,0 +1,4 @@
+# Don't track content of these folders
+figures/**
+__pyphi_cache__/**
+pyphi.log
