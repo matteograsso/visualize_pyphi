@@ -286,15 +286,19 @@ def relation_untouched(untouched_ces, relation):
     return relata_in_ces
 
 
-def get_big_phi(ces, relations, indices):
+def get_big_phi(ces, relations, indices, partitions=None):
     sum_of_small_phi = sum([mice.phi for mice in ces]) + sum([r.phi for r in relations])
-
-    partitions = [
-        part
-        for part in pyphi.partition.bipartition(indices)
-        if all([len(p) > 0 for p in part])
-    ]
     
+    if len(indices)==1:
+        return sum_of_small_phi, (((),()),'disintegration')
+
+    if partitions == None:
+        partitions = [
+            part
+            for part in pyphi.partition.bipartition(indices)
+            if all([len(p) > 0 for p in part])
+        ]
+        
     min_phi = np.inf
     for parts in (tqdm(partitions, desc="System partitions") if len(partitions)>100 and len(indices)>4 else partitions):
         for p1, p2, direction in product(parts, parts, [CAUSE, EFFECT]):
@@ -394,6 +398,7 @@ def get_maximal_ces(system, ces=None, max_k=3):
             m.node_labels = system.node_labels
 
     compositional_states = get_all_compositional_states(ces)
+    
     big_phi = 0
     for compositional_state in tqdm(compositional_states, desc='Computing Big Phi for all compositional states'):
         (

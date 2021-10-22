@@ -184,34 +184,34 @@ def plot_ces(
     ces,
     relations,
     network_name="",
-    floor_width_scale=2,
-    floor_height_scale=2,
+    floor_width_scale=[1.5, 2, 2, 1, 1],
+    floor_height_scale=[2, 2, 2, 1.5, 2],
     cause_effect_distance=0.2,   
-    base_height_scale=1.5,
-    base_z_offset=0.1,
-    base_width_scale=0.7,
-    base_opacity=1.0,
+    base_height_scale=2.7,
+    base_z_offset=0.2,
+    base_width_scale=0.8,
+    base_opacity=0.9,
+    base_intensity=1.0,
     base_color="white",
-    base_intensity=0.5,
     user_mechanism_coordinates=None,
     user_purview_coordinates=None,
-    mechanism_labels_size=15,
-    mechanism_label_position="top center",
-    purview_label_position="top center",
+    mechanism_labels_size=40,
+    purview_labels_size=40,
+    mechanism_label_position="middle center",
+    purview_label_position="middle center",
     edge_size_range=(1, 3),
     state_as_lettercase=True,
-    purview_labels_size=16,
     link_width_range=(2, 6),
     transparent_edges=False,
     surface_size_range=(0.1,0.99),
-    surface_colorscale='Purples',
-    surface_opacity=0.2,
+    surface_colorscale='Blues',
+    surface_opacity=0.1,
     axes_range=None,
     eye_coordinates=(.1, -0.4, .025),
     hovermode="x",
-    plot_dimensions=(1200,1000),
+    plot_dimensions=(2500,2000),
     save_plot_to_html=True,
-    save_plot_to_png=False,
+    save_plot_to_png=True,
     show_mechanism_base=True,    
     show_chains=True, 
     show_links=True,
@@ -253,7 +253,7 @@ def plot_ces(
                 int(comb(N_units, k + 1)),
                 center=(0,0),
                 angle=0,
-                z=k*floor_height_scale,
+                z=k*floor_height_scale[k] if type(floor_width_scale)==list else k*floor_height_scale,
                 scale=floor_width_scale[k] if type(floor_width_scale)==list else floor_width_scale,
             )
         )
@@ -389,62 +389,63 @@ def plot_ces(
     
     
     # Make mechanism base
-    first_order_mechanisms = list(filter(lambda m: len(m) == 1, mechanisms))
+    if show_mechanism_base:
+        first_order_mechanisms = list(filter(lambda m: len(m) == 1, mechanisms))
 
-    base_mechanisms = []
-    base_pair_counter = 0
-    for m1, mech1 in enumerate(mechanisms):
-        for m2, mech2 in enumerate(first_order_mechanisms):
-            if mech2[0] in mech1:
-                base_mechanisms.append((base_pair_counter, (m1, m2)))
-                base_pair_counter += 1
-    
-    base_mechanisms_pairs = [base_pair[1] for base_pair in base_mechanisms]
+        base_mechanisms = []
+        base_pair_counter = 0
+        for m1, mech1 in enumerate(mechanisms):
+            for m2, mech2 in enumerate(first_order_mechanisms):
+                if mech2[0] in mech1:
+                    base_mechanisms.append((base_pair_counter, (m1, m2)))
+                    base_pair_counter += 1
 
-    base_mechanisms_triplets = []
-    ss = []
-    for a, b in itertools.combinations(base_mechanisms_pairs, 2):
-        s = set(a).union(b)
-        if len(s) == 3:
-            base_mechanisms_triplets.append(tuple(sorted(s)))
+        base_mechanisms_pairs = [base_pair[1] for base_pair in base_mechanisms]
 
-    base_mechanisms_triplets = sorted(list(set(base_mechanisms_triplets)))
+        base_mechanisms_triplets = []
+        ss = []
+        for a, b in itertools.combinations(base_mechanisms_pairs, 2):
+            s = set(a).union(b)
+            if len(s) == 3:
+                base_mechanisms_triplets.append(tuple(sorted(s)))
 
-    base_mechanisms_triangles = np.array(
-        [
-            triplet
-            for triplet in base_mechanisms_triplets
-            if len(triplet) == 3
-            and len(
-                list(
-                    filter(
-                        lambda mechanism_index: mechanism_index
-                        > len(first_order_mechanisms) - 1,
-                        triplet,
+        base_mechanisms_triplets = sorted(list(set(base_mechanisms_triplets)))
+
+        base_mechanisms_triangles = np.array(
+            [
+                triplet
+                for triplet in base_mechanisms_triplets
+                if len(triplet) == 3
+                and len(
+                    list(
+                        filter(
+                            lambda mechanism_index: mechanism_index
+                            > len(first_order_mechanisms) - 1,
+                            triplet,
+                        )
                     )
                 )
-            )
-            == 1
-        ]
-    )
+                == 1
+            ]
+        )
 
-    base_mesh = go.Mesh3d(
-        visible=show_mechanism_base,
-        legendgroup="base mesh",
-        showlegend=True,
-        x=x_mechanism,
-        y=y_mechanism,
-        z=z_mechanism,
-        i=base_mechanisms_triangles[:, 0],
-        j=base_mechanisms_triangles[:, 1],
-        k=base_mechanisms_triangles[:, 2],
-        name="Base",
-        intensity=[base_intensity for x in x_mechanism],
-        opacity=base_opacity,
-        colorscale=[base_color for x in x_mechanism],
-        showscale=False,
-    )
-    fig.add_trace(base_mesh)
+        base_mesh = go.Mesh3d(
+            visible=show_mechanism_base,
+            legendgroup="base mesh",
+            showlegend=True,
+            x=x_mechanism,
+            y=y_mechanism,
+            z=z_mechanism,
+            i=base_mechanisms_triangles[:, 0],
+            j=base_mechanisms_triangles[:, 1],
+            k=base_mechanisms_triangles[:, 2],
+            name="Base",
+            intensity=[base_intensity for x in x_mechanism],
+            opacity=base_opacity,
+            colorscale=[base_color for x in x_mechanism],
+            showscale=False,
+        )
+        fig.add_trace(base_mesh)
     
     ####
     # Label purviews

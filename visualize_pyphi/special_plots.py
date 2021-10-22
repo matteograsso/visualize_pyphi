@@ -26,6 +26,42 @@ def overlaid_ces_plot(system, cess, relations, nonstandard_kwargs):
         
     return fig
 
+def plot_effect_of_MIP(system,ces,relations,figure_name,partitions=None):
+    
+    Phi, cut = compute.get_big_phi(ces,relations, system.node_indices,partitions)
+    untouched_ces, untouched_relations = compute.get_untouced_ces_and_rels(
+        ces, relations, cut
+    )
+    untouched_relations = [r for r in relations if compute.relation_untouched(untouched_ces, r)]
+    
+    cess = [ces, untouched_ces]
+    relations = [relations, untouched_relations]
+    
+    nonstandard_kwargs = [
+        dict(
+            network_name=figure_name,
+            surface_colorscale='Greys',
+            surface_opacity=0.001,
+            show_labels=False,
+            show_links=False,
+            show_edges=False,
+            show_legend=False,
+            show_mechanism_base=False,
+            show_chains=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False
+        ),
+        dict(
+            network_name=figure_name,
+            surface_colorscale='Blues',
+            surface_opacity=1.0,
+            show_legend=False,
+            show_chains=False
+        ),
+    ]
+
+    overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
+    
 
 
 def plot_perception(system,ces,triggered_distinctions,figure_name):
