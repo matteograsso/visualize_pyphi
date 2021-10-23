@@ -67,7 +67,7 @@ def plot_effect_of_MIP(system,ces,relations,figure_name,partitions=None,common_k
         for default_uncommon_kwarg, uncommon_kwarg in zip(default_uncommon_kwargs, uncommon_kwargs)
         ]
 
-    nonstandard_kwargs = [dict(**common_kwargs, **kwargs) for kwargs in uncommon_kwargs]
+    nonstandard_kwargs = [dict(**default_common_kwargs, **kwargs) for kwargs in default_uncommon_kwargs]
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
     
@@ -86,28 +86,32 @@ def plot_perception(system,ces,triggered_distinctions,figure_name,common_kwargs=
     default_common_kwargs = dict(
         network_name=figure_name,
         show_legend=False,
+        show_chains=False,
+        save_plot_to_html=False,
     )
     default_common_kwargs.update(common_kwargs)
     
     default_uncommon_kwargs = [
         dict(
-            surface_colorscale='Greys',
-            surface_opacity=0.001,
+            surface_colorscale='Blues',
+            surface_opacity=0.1,
             show_labels=False,
             show_links=False,
             show_edges=False,
         ),
         dict(
-            surface_colorscale='Blues',
+            surface_colorscale='Greens',
             surface_opacity=1.0,
         ),
     ]
+    
     default_uncommon_kwargs = [
         dict(**default_uncommon_kwarg, **uncommon_kwarg) 
         for default_uncommon_kwarg, uncommon_kwarg in zip(default_uncommon_kwargs, uncommon_kwargs)
-    ]
+        ]
 
-    nonstandard_kwargs = [dict(**common_kwargs, **kwargs) for kwargs in uncommon_kwargs]
+    nonstandard_kwargs = [dict(**default_common_kwargs, **kwargs) for kwargs in default_uncommon_kwargs]
 
+    print(nonstandard_kwargs)
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
     
