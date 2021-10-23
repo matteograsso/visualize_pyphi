@@ -645,7 +645,7 @@ def plot_ces(
             three_relation_orders = [np.mean([len(rr.purview) for rr in r.relata]) for r in three_relations]
             three_relation_orders = [o/max(three_relation_orders) for o in three_relation_orders]
             three_relations_sizes = normalize_sizes(
-                surface_size_range[0], surface_size_range[1], three_relations
+                surface_size_range[0]*surface_opacity, surface_size_range[1]*surface_opacity, three_relations
             )
 
             # Extract triangle indices
