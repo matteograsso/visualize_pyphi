@@ -1,3 +1,5 @@
+# TODO: - Update code to be in line with new relation module (e.g. maximal state will be part of MICE)
+
 '''
 This module plots a pyphi CES taking a subsystem, a CES, and a list of relations as arguments.
     subsystem: a pyphi subsystem
