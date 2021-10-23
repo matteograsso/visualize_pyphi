@@ -26,7 +26,7 @@ def overlaid_ces_plot(system, cess, relations, nonstandard_kwargs):
         
     return fig
 
-def plot_effect_of_MIP(system,ces,relations,figure_name,partitions=None):
+def plot_effect_of_MIP(system,ces,relations,figure_name,partitions=None,common_kwargs=dict(),uncommon_kwargs=[dict(), dict()]):
     
     Phi, cut = compute.get_big_phi(ces,relations, system.node_indices,partitions)
     untouched_ces, untouched_relations = compute.get_untouced_ces_and_rels(
@@ -36,35 +36,44 @@ def plot_effect_of_MIP(system,ces,relations,figure_name,partitions=None):
     
     cess = [ces, untouched_ces]
     relations = [relations, untouched_relations]
-    
-    nonstandard_kwargs = [
-        dict(
+
+    default_common_kwargs = dict(
             network_name=figure_name,
-            surface_colorscale='Greys',
-            surface_opacity=0.001,
-            show_labels=False,
-            show_links=False,
-            show_edges=False,
-            show_legend=False,
-            show_mechanism_base=False,
-            show_chains=False,
-            save_plot_to_png=False,
-            save_plot_to_html=False
-        ),
-        dict(
-            network_name=figure_name,
-            surface_colorscale='Blues',
-            surface_opacity=1.0,
             show_legend=False,
             show_chains=False
-        ),
-    ]
+        )
+    default_common_kwargs.update(common_kwargs)
+    
+    default_uncommon_kwargs = [
+            dict(
+                surface_colorscale='Greys',
+                surface_opacity=0.001,
+                show_labels=False,
+                show_links=False,
+                show_edges=False,
+                show_legend=False,
+                show_mechanism_base=False,
+                show_chains=False,
+                save_plot_to_png=False,
+                save_plot_to_html=False
+            ),
+            dict(
+                surface_colorscale='Blues',
+                surface_opacity=1.0,
+            ),
+        ]
+    default_uncommon_kwargs = [
+        dict(**default_uncommon_kwarg, **uncommon_kwarg) 
+        for default_uncommon_kwarg, uncommon_kwarg in zip(default_uncommon_kwargs, uncommon_kwargs)
+        ]
+
+    nonstandard_kwargs = [dict(**common_kwargs, **kwargs) for kwargs in uncommon_kwargs]
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
     
 
 
-def plot_perception(system,ces,triggered_distinctions,figure_name):
+def plot_perception(system,ces,triggered_distinctions,figure_name,common_kwargs=dict(),uncommon_kwargs=[dict(), dict()]):
     
     relations = compute.compute_relations(system,ces)
     
@@ -74,23 +83,31 @@ def plot_perception(system,ces,triggered_distinctions,figure_name):
     cess = [ces, triggered_ces]
     relations = [relations, triggered_relations]
     
-    nonstandard_kwargs = [
+    default_common_kwargs = dict(
+        network_name=figure_name,
+        show_legend=False,
+    )
+    default_common_kwargs.update(common_kwargs)
+    
+    default_uncommon_kwargs = [
         dict(
-            network_name=figure_name,
             surface_colorscale='Greys',
             surface_opacity=0.001,
             show_labels=False,
             show_links=False,
             show_edges=False,
-            show_legend=False,
         ),
         dict(
-            network_name=figure_name,
             surface_colorscale='Blues',
             surface_opacity=1.0,
-            show_legend=False,
         ),
     ]
+    default_uncommon_kwargs = [
+        dict(**default_uncommon_kwarg, **uncommon_kwarg) 
+        for default_uncommon_kwarg, uncommon_kwarg in zip(default_uncommon_kwargs, uncommon_kwargs)
+    ]
+
+    nonstandard_kwargs = [dict(**common_kwargs, **kwargs) for kwargs in uncommon_kwargs]
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
     
