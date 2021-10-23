@@ -2,3 +2,4 @@
 figures/**
 __pyphi_cache__/**
 pyphi.log
+.ipynb_checkpoints/**
