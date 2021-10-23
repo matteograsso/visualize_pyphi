@@ -3,3 +3,8 @@ figures/**
 __pyphi_cache__/**
 pyphi.log
 .ipynb_checkpoints/**
+_CES.html
+_CES.png
+.ipynb_checkpoints/Example_notebook-checkpoint.ipynb
+visualize_pyphi/.ipynb_checkpoints/**
+visualize_pyphi/__pycache__/**
