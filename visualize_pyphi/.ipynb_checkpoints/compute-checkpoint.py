@@ -285,7 +285,13 @@ def relation_untouched(untouched_ces, relation):
     relata_in_ces = all([relatum in untouched_ces for relatum in relation.relata])
     return relata_in_ces
 
-
+def context_relations(relations, distinctions):
+    return [relation for relation in relations 
+            if (
+                any([relatum in distinctions for relatum in relation.relata]) 
+                and not all([relatum in distinctions for relatum in relation.relata])
+            )
+           ]
 def get_big_phi(ces, relations, indices, partitions=None):
     sum_of_small_phi = sum([mice.phi for mice in ces]) + sum([r.phi for r in relations])
     
@@ -431,3 +437,52 @@ def get_untouced_ces_and_rels(ces,relations,parts):
     untouched_relations = [r for r in relations if relation_untouched(untouched_ces, r)]
             
     return untouched_ces, untouched_relations
+
+
+
+def get_component_phi(ces, relations, component_distinctions):
+
+    component_ces = [mice for mice, d in zip(ces, component_distinctions) if d]
+    component_relations = [
+        r for r in relations if relation_untouched(component_ces, r)
+    ]
+
+    sum_of_small_phi = sum([mice.phi for mice in component_ces]) + sum(
+        [r.phi for r in component_relations]
+    )
+
+    min_phi = np.inf
+    dominant_distinction = ()
+    component_phi = 0
+    for i, untouched_ces in enumerate(
+        [
+            pyphi.models.CauseEffectStructure(
+                component_ces[:i] + component_ces[i + 1 :]
+            )
+            for i in range(len(component_ces) - 1)
+        ]
+    ):
+        untouched_relations = [
+            r
+            for r in component_relations
+            if relation_untouched(untouched_ces, r)
+        ]
+
+        sum_phi_untouched = sum([mice.phi for mice in untouched_ces]) + sum(
+            [r.phi for r in untouched_relations]
+        ) if len(untouched_relations)>0 else sum([mice.phi for mice in untouched_ces])
+        
+        max_possible_phi_untouched = sum(
+            [len(mice.mechanism) for mice in untouched_ces]
+        ) + sum([min([len(relatum.purview) for relatum in relation.relata])
+                    for relation in untouched_relations]
+            )
+
+        lost_phi = sum_of_small_phi - sum_phi_untouched
+
+        if lost_phi < min_phi:
+            min_phi = lost_phi
+            dominant_distinction = component_ces[i]
+            component_phi = sum_phi_untouched / max_possible_phi_untouched * lost_phi
+
+    return component_phi, dominant_distinction

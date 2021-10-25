@@ -1,3 +1,5 @@
+# TODO: - Update code to be in line with new relation module (e.g. maximal state will be part of MICE)
+
 '''
 This module plots a pyphi CES taking a subsystem, a CES, and a list of relations as arguments.
     subsystem: a pyphi subsystem
@@ -93,7 +95,7 @@ def label_purview(mice, state=False):
 
 
 def hovertext_purview(mice):
-    return f"Distinction: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.maximal_state(mice)[0][i] for i in mice.purview]}"
+    return f"Distinction: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.maximal_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'maximal_state') else mice.maximal_state}"
 
 
 def hovertext_relation(relation):
@@ -101,7 +103,7 @@ def hovertext_relation(relation):
 
     relata_info = "".join(
         [
-            f"<br>Distinction {n}: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.maximal_state(mice)[0][i] for i in mice.purview]}<br>"
+            f"<br>Distinction {n}: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.maximal_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'maximal_state') else mice.maximal_state}<br>"
             for n, mice in enumerate(relata)
         ]
     )
@@ -453,7 +455,7 @@ def plot_ces(
     purview_labels = [
         label_purview(
             mice,
-            state=list(rel.maximal_state(mice)[0]) if state_as_lettercase else False,
+            state=list(rel.maximal_state(mice)[0]) if not hasattr(mice,'maximal_state') else mice.maximal_state if state_as_lettercase else False,
         )
         for mice in ces
     ]
@@ -645,7 +647,7 @@ def plot_ces(
             three_relation_orders = [np.mean([len(rr.purview) for rr in r.relata]) for r in three_relations]
             three_relation_orders = [o/max(three_relation_orders) for o in three_relation_orders]
             three_relations_sizes = normalize_sizes(
-                surface_size_range[0], surface_size_range[1], three_relations
+                surface_size_range[0]*surface_opacity, surface_size_range[1]*surface_opacity/2, three_relations
             )
 
             # Extract triangle indices
@@ -704,7 +706,7 @@ def plot_ces(
                     [1, 'blue']],
                     intensity=[1.0],
                     intensitymode='cell',
-                    opacity=three_relations_sizes[r]/4,
+                    opacity=three_relations_sizes[r],
                     showscale=False,
                     name="All 3-Relations",
                     hoverinfo="text",

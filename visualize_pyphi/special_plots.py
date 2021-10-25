@@ -71,6 +71,68 @@ def plot_effect_of_MIP(system,ces,relations,figure_name,partitions=None,common_k
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
     
+    
+
+def plot_component(system,ces,component_distinctions,figure_name,common_kwargs=dict(),uncommon_kwargs=[dict(), dict(), dict()], relations=None):
+    
+    if relations==None:
+        relations = compute.compute_relations(system,ces)
+    
+    component_ces = CauseEffectStructure([mice for mice, component_distinction in zip(ces, component_distinctions) if component_distinction])
+    component_relations = [r for r in relations if compute.relation_untouched(component_ces, r)]
+    
+    component_context_relations = compute.context_relations(
+        relations, [
+            mice 
+            for mice, distinction in zip(component_ces, component_distinctions) 
+            if distinction
+        ]
+    )
+    component_context_ces = CauseEffectStructure(set([mice for relation in component_context_relations for mice in relation.relata]))
+    
+    cess = [ces, component_context_ces, component_ces]
+    relations = [relations, component_context_relations, component_relations]
+    
+    default_common_kwargs = dict(
+        network_name=figure_name,
+        show_legend=False,
+        show_chains=False,
+    )
+    default_common_kwargs.update(common_kwargs)
+    
+    default_uncommon_kwargs = [
+        dict(
+            surface_colorscale='Blues',
+            surface_opacity=0.1,
+            show_labels=False,
+            show_links=False,
+            show_edges=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+        ),
+        dict(
+            surface_colorscale='Oranges',
+            surface_opacity=0.4,
+            show_labels=False,
+            show_links=False,
+            show_edges=True,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+        ),
+        dict(
+            surface_colorscale='Purples',
+            surface_opacity=1.0,
+        ),
+    ]
+    
+    default_uncommon_kwargs = [
+        dict(**default_uncommon_kwarg, **uncommon_kwarg) 
+        for default_uncommon_kwarg, uncommon_kwarg in zip(default_uncommon_kwargs, uncommon_kwargs)
+        ]
+
+    nonstandard_kwargs = [dict(**default_common_kwargs, **kwargs) for kwargs in default_uncommon_kwargs]
+
+    overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
 
 
 def plot_perception(system,ces,triggered_distinctions,figure_name,common_kwargs=dict(),uncommon_kwargs=[dict(), dict()]):
@@ -112,6 +174,5 @@ def plot_perception(system,ces,triggered_distinctions,figure_name,common_kwargs=
 
     nonstandard_kwargs = [dict(**default_common_kwargs, **kwargs) for kwargs in default_uncommon_kwargs]
 
-    print(nonstandard_kwargs)
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
     
