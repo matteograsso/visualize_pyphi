@@ -25,7 +25,7 @@ def unfold_separated_ces(system):
         
     
 def compute_relations(subsystem, ces, max_k=3, num_relations=False):
-    ks_relations = []
+    relations = []
     for k in range(2, max_k + 1):
         relata = [
             rels.Relata(subsystem, mices)
@@ -41,8 +41,8 @@ def compute_relations(subsystem, ces, max_k=3, num_relations=False):
             for relatum in (tqdm(relata) if len(relata) > 5000 else relata)
         ]
         k_relations = list(filter(lambda r: r.phi > 0, k_relations))
-        ks_relations.extend(k_relations)
-    return ks_relations
+        relations.extend(k_relations)
+    return relations
 
 
 
