@@ -39,7 +39,7 @@ def plot_effect_of_MIP(
 
     Phi, cut = compute.get_big_phi(ces, relations, system.node_indices, partitions)
     untouched_ces, untouched_relations = compute.get_untouced_ces_and_rels(
-        ces, relations, cut
+        ces, relations, cut[1:]
     )
     untouched_relations = [
         r for r in relations if compute.relation_untouched(untouched_ces, r)
@@ -49,26 +49,25 @@ def plot_effect_of_MIP(
     relations = [relations, untouched_relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, show_chains=False
+        network_name=figure_name, show_legend=False
     )
     default_common_kwargs.update(common_kwargs)
 
     default_uncommon_kwargs = [
         dict(
             surface_colorscale="Greys",
-            surface_opacity=0.001,
+            surface_opacity=0.2,
             show_labels=False,
             show_links=False,
             show_edges=False,
-            show_legend=False,
-            show_mechanism_base=False,
-            show_chains=False,
             save_plot_to_png=False,
             save_plot_to_html=False,
         ),
         dict(
             surface_colorscale="Blues",
-            surface_opacity=1.0,
+            surface_opacity=0.9,
+            show_chains=False,
+            show_mechanism_base=False
         ),
     ]
     default_uncommon_kwargs = [
@@ -113,7 +112,7 @@ def plot_component(
         relations,
         [
             mice
-            for mice, distinction in zip(component_ces, component_distinctions)
+            for mice, distinction in zip(ces, component_distinctions)
             if distinction
         ],
     )
@@ -127,13 +126,13 @@ def plot_component(
         )
     )
 
+    print(len(component_context_ces))
     cess = [ces, component_context_ces, component_ces]
     relations = [relations, component_context_relations, component_relations]
 
     default_common_kwargs = dict(
         network_name=figure_name,
         show_legend=False,
-        show_chains=False,
     )
     default_common_kwargs.update(common_kwargs)
 
@@ -149,16 +148,20 @@ def plot_component(
         ),
         dict(
             surface_colorscale="Oranges",
-            surface_opacity=0.4,
+            surface_opacity=0.15,
             show_labels=False,
             show_links=False,
             show_edges=True,
             save_plot_to_png=False,
             save_plot_to_html=False,
+            show_mechanism_base=False,
+            show_chains=False,
         ),
         dict(
             surface_colorscale="Purples",
-            surface_opacity=1.0,
+            surface_opacity=0.9,
+            show_mechanism_base=False,
+            show_chains=False,
         ),
     ]
 

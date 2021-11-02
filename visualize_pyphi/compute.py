@@ -434,7 +434,7 @@ def get_untouced_ces_and_rels(ces,relations,parts):
                     mice
                     for mice in ces
                     if not distinction_touched(
-                        mice, parts[1], parts[2], parts[3]
+                        mice, parts[0], parts[1], parts[2]
                     )
                 ])
     untouched_relations = [r for r in relations if relation_untouched(untouched_ces, r)]

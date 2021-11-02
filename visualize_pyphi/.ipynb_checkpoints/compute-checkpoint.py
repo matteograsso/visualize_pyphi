@@ -47,8 +47,11 @@ def compute_relations(subsystem, ces, max_k=3, num_relations=False):
 
 
 
-def compositional_state_from_system_state(state):
+def compositional_state_from_system_state(state, system_indices=None):
 
+    if system_indices==None:
+        system_indices = tuple(range(len(state)))
+        
     # if a single state is sent in, it assumes thae cause and effect states are the same
     if type(state) is tuple:
         cause_state = state
@@ -63,7 +66,7 @@ def compositional_state_from_system_state(state):
         direction: {
             subset_elements: tuple(state[i] for i in subset_elements)
             for subset_elements in pyphi.utils.powerset(
-                range(len(state)), nonempty=True
+                system_indices, nonempty=True
             )
         }
         for state, direction in zip(
@@ -431,7 +434,7 @@ def get_untouced_ces_and_rels(ces,relations,parts):
                     mice
                     for mice in ces
                     if not distinction_touched(
-                        mice, parts[1], parts[2], parts[3]
+                        mice, parts[0], parts[1], parts[2]
                     )
                 ])
     untouched_relations = [r for r in relations if relation_untouched(untouched_ces, r)]
