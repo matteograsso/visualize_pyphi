@@ -1,11 +1,11 @@
 # TODO: - Update code to be in line with new relation module (e.g. maximal state will be part of MICE)
 
-'''
+"""
 This module plots a pyphi CES taking a subsystem, a CES, and a list of relations as arguments.
     subsystem: a pyphi subsystem
     ces: ces must be separated into cause and effect distinctions filtered by compositional state
     relations: only 2 and 3 relations will be plotted
-'''
+"""
 
 import itertools
 import numpy as np
@@ -30,7 +30,7 @@ def flatten(iterable):
 
 
 def phi_round(phi):
-    return np.round(phi, 4)    
+    return np.round(phi, 4)
 
 
 def feature_matrix(ces, relations):
@@ -74,13 +74,13 @@ def make_label(node_indices, node_labels=None, bold=False, state=False):
         # capitalizing labels of mechs that are on
         for n, i in zip(node_labels, node_indices):
             if state[i] == 0:
-                nl.append(n.lower()+'')
+                nl.append(n.lower() + "")
             else:
-                nl.append(n.upper()+'')
+                nl.append(n.upper() + "")
         node_labels = nl
-        
-        return "<i>" + "".join(node_labels) + "</i>" 
-        
+
+        return "<i>" + "".join(node_labels) + "</i>"
+
     return "<b>" + "".join(node_labels) + "</b>" if bold else "".join(node_labels)
 
 
@@ -186,9 +186,10 @@ def plot_ces(
     ces,
     relations,
     network_name="",
-    floor_width_scale=[1.5, 2, 2, 1, 1],
-    floor_height_scale=[2, 2, 2, 1.5, 2],
-    cause_effect_distance=0.2,   
+    floor_width_scale=1,
+    floor_width_scales=None,
+    floor_height_scale=1,
+    cause_effect_distance=0.2,
     base_height_scale=2.7,
     base_z_offset=0.2,
     base_width_scale=0.8,
@@ -205,17 +206,17 @@ def plot_ces(
     state_as_lettercase=True,
     link_width_range=(2, 6),
     transparent_edges=False,
-    surface_size_range=(0.1,0.99),
-    surface_colorscale='Blues',
+    surface_size_range=(0.1, 0.99),
+    surface_colorscale="Blues",
     surface_opacity=0.1,
     axes_range=None,
-    eye_coordinates=(.1, -0.4, .025),
+    eye_coordinates=(0.1, -0.4, 0.025),
     hovermode="x",
-    plot_dimensions=(2500,2000),
+    plot_dimensions=(2500, 2000),
     save_plot_to_html=True,
     save_plot_to_png=True,
-    show_mechanism_base=True,    
-    show_chains=True, 
+    show_mechanism_base=True,
+    show_chains=True,
     show_links=True,
     show_mesh=True,
     show_edges=True,
@@ -232,9 +233,9 @@ def plot_ces(
         fig = go.Figure()
     else:
         # because of an issue with potentially lacking 1st order mechs
-        print('Not redrawing base')
-        show_mechanism_base=False
-    
+        print("Not redrawing base")
+        show_mechanism_base = False
+
     # get components needed for plotting
     relations = list(filter(lambda r: len(r.relata) <= 3, relations))
     purviews = [mice.purview for mice in ces]
@@ -242,8 +243,7 @@ def plot_ces(
     N_units = len(subsystem)
     node_labels = subsystem.node_labels
     node_indices = subsystem.node_indices
-    
-    
+
     ######
     # Define the coordinates for all purviews
     ######
@@ -253,10 +253,12 @@ def plot_ces(
         np.array(
             regular_polygon(
                 int(comb(N_units, k + 1)),
-                center=(0,0),
+                center=(0, 0),
                 angle=0,
-                z=k*floor_height_scale[k] if type(floor_width_scale)==list else k*floor_height_scale,
-                scale=floor_width_scale[k] if type(floor_width_scale)==list else floor_width_scale,
+                z=k * floor_height_scale,
+                scale=floor_width_scales[k]
+                if floor_width_scales
+                else floor_width_scale,
             )
         )
         for k in range(N_units)
@@ -280,7 +282,7 @@ def plot_ces(
         for e, n in zip(floor_vertices, num_purviews)
         if n > 0
     ]
-    
+
     # associating each purview with vertices in a regular polygon around the correct floor vertex
     purview_positions = [
         {v: e, "N": 0} for v, e in zip(vertex_purview.keys(), epicycles)
@@ -297,7 +299,7 @@ def plot_ces(
                 purview_position["N"] += 1
 
     purview_coordinates = np.array(purview_vertex_coordinates)
-    
+
     ######
     # Define the coordinates for all mechanisms
     ######
@@ -305,7 +307,7 @@ def plot_ces(
         np.array(
             regular_polygon(
                 int(comb(N_units, k)),
-                center=(0,0),
+                center=(0, 0),
                 z=((k / N_units) * base_height_scale) + base_z_offset,
                 scale=base_width_scale,
             )
@@ -314,20 +316,21 @@ def plot_ces(
     ]
 
     base_vertices = np.concatenate([f for f in base])
-    
-    base_coordinates = {subset: coordinates for subset, coordinates in zip(all_purviews, base_vertices)}
-            
-    # store all the coordinates of the mechanisms in lists 
+
+    base_coordinates = {
+        subset: coordinates for subset, coordinates in zip(all_purviews, base_vertices)
+    }
+
+    # store all the coordinates of the mechanisms in lists
     x_mechanism = [base_coordinates[mice.mechanism][0] for mice in ces]
     y_mechanism = [base_coordinates[mice.mechanism][1] for mice in ces]
     z_mechanism = [base_coordinates[mice.mechanism][2] for mice in ces]
-    
+
     x_purview = purview_coordinates[:, 0]
     y_purview = purview_coordinates[:, 1]
     z_purview = purview_coordinates[:, 2]
-    
-    
-    # 
+
+    #
     if user_mechanism_coordinates is not None:
         x_mechanism = user_mechanism_coordinates[0, :]
         y_mechanism = user_mechanism_coordinates[1, :]
@@ -337,38 +340,36 @@ def plot_ces(
         x_purview = user_purview_coordinates[0, :]
         y_purview = user_purview_coordinates[1, :]
         z_purview = user_purview_coordinates[2, :]
-        
+
     # create the link coordinates
     link_coordinates = (
         list(zip(x_purview, x_mechanism)),
         list(zip(y_purview, y_mechanism)),
         list(zip(z_purview, z_mechanism)),
     )
-        
+
     ###
     # Create a matrix that connects distinctions to relations
     ###
     features = feature_matrix(ces, relations)
-    
+
     # separate cause and effect purview coordinates
-    causes_x = [x for i, x in enumerate(x_purview) if ces[i].direction==CAUSE]
-    causes_y = [y for i, y in enumerate(y_purview) if ces[i].direction==CAUSE]
-    causes_z = [z for i, z in enumerate(z_purview) if ces[i].direction==CAUSE]
-    
-    effects_x = [x for i, x in enumerate(x_purview) if ces[i].direction==EFFECT]
-    effects_y = [y for i, y in enumerate(y_purview) if ces[i].direction==EFFECT]
-    effects_z = [z for i, z in enumerate(z_purview) if ces[i].direction==EFFECT]
-    
-    
-    # Get mechanism and purview labels 
-    mechanism_labels = [label_mechanism(
-            mice,
-            bold=False,
-            state=subsystem.state if state_as_lettercase else False,
+    causes_x = [x for i, x in enumerate(x_purview) if ces[i].direction == CAUSE]
+    causes_y = [y for i, y in enumerate(y_purview) if ces[i].direction == CAUSE]
+    causes_z = [z for i, z in enumerate(z_purview) if ces[i].direction == CAUSE]
+
+    effects_x = [x for i, x in enumerate(x_purview) if ces[i].direction == EFFECT]
+    effects_y = [y for i, y in enumerate(y_purview) if ces[i].direction == EFFECT]
+    effects_z = [z for i, z in enumerate(z_purview) if ces[i].direction == EFFECT]
+
+    # Get mechanism and purview labels
+    mechanism_labels = [
+        label_mechanism(
+            mice, bold=False, state=subsystem.state if state_as_lettercase else False,
         )
         for mice in ces
     ]
-    
+
     labels_mechanisms_trace = go.Scatter3d(
         visible=show_labels,
         x=x_mechanism,
@@ -378,18 +379,14 @@ def plot_ces(
         text=mechanism_labels,
         name="Mechanism Labels",
         showlegend=True,
-        textfont=dict(
-            size=mechanism_labels_size,
-            color="black",
-        ),
+        textfont=dict(size=mechanism_labels_size, color="black",),
         textposition=mechanism_label_position,
         hoverinfo="text",
         hovertext=False,
         hoverlabel=dict(bgcolor="black", font_color="white"),
     )
     fig.add_trace(labels_mechanisms_trace)
-    
-    
+
     # Make mechanism base
     if show_mechanism_base:
         first_order_mechanisms = list(filter(lambda m: len(m) == 1, mechanisms))
@@ -448,25 +445,37 @@ def plot_ces(
             showscale=False,
         )
         fig.add_trace(base_mesh)
-    
+
     ####
     # Label purviews
     ####
     purview_labels = [
         label_purview(
             mice,
-            state=list(rel.maximal_state(mice)[0]) if not hasattr(mice,'maximal_state') else mice.maximal_state if state_as_lettercase else False,
+            state=list(rel.maximal_state(mice)[0])
+            if not hasattr(mice, "maximal_state")
+            else mice.maximal_state
+            if state_as_lettercase
+            else False,
         )
         for mice in ces
     ]
-    
-    cause_purview_labels = [x for i, x in enumerate(purview_labels) if ces[i].direction==CAUSE]
-    effect_purview_labels = [x for i, x in enumerate(purview_labels) if ces[i].direction==EFFECT]
-    
+
+    cause_purview_labels = [
+        x for i, x in enumerate(purview_labels) if ces[i].direction == CAUSE
+    ]
+    effect_purview_labels = [
+        x for i, x in enumerate(purview_labels) if ces[i].direction == EFFECT
+    ]
+
     vertices_hovertext = list(map(hovertext_purview, ces))
-    causes_hovertext = [x for i, x in enumerate(vertices_hovertext) if ces[i].direction==CAUSE]
-    effects_hovertext = [x for i, x in enumerate(vertices_hovertext) if ces[i].direction==EFFECT]
-    
+    causes_hovertext = [
+        x for i, x in enumerate(vertices_hovertext) if ces[i].direction == CAUSE
+    ]
+    effects_hovertext = [
+        x for i, x in enumerate(vertices_hovertext) if ces[i].direction == EFFECT
+    ]
+
     # Create labels for cause purviews
     labels_cause_purviews_trace = go.Scatter3d(
         visible=show_labels,
@@ -478,10 +487,7 @@ def plot_ces(
         textposition=purview_label_position,
         name="Cause Purview Labels",
         showlegend=True,
-        textfont=dict(
-            size=purview_labels_size,
-            color="red",
-        ),
+        textfont=dict(size=purview_labels_size, color="red",),
         hoverinfo="text",
         hovertext=causes_hovertext,
         hoverlabel=dict(bgcolor="red"),
@@ -499,10 +505,7 @@ def plot_ces(
         textposition=purview_label_position,
         name="Effect Purview Labels",
         showlegend=True,
-        textfont=dict(
-            size=purview_labels_size,
-            color="green",
-        ),
+        textfont=dict(size=purview_labels_size, color="green",),
         hoverinfo="text",
         hovertext=effects_hovertext,
         hoverlabel=dict(bgcolor="green"),
@@ -512,8 +515,8 @@ def plot_ces(
     # plotting links
     links_widths = normalize_sizes(link_width_range[0], link_width_range[1], ces)
     links_widths = list(flatten(list(zip(links_widths, links_widths))))
-    
-    links_counter=0
+
+    links_counter = 0
     for i, mice in enumerate(ces):
         link_trace = go.Scatter3d(
             visible=show_links,
@@ -525,13 +528,11 @@ def plot_ces(
             mode="lines",
             name="Links",
             line_width=links_widths[i],
-            line_color=["red"] if mice.direction==CAUSE else ["green"],
+            line_color=["red"] if mice.direction == CAUSE else ["green"],
             hoverinfo="skip",
         )
         links_counter += 1
         fig.add_trace(link_trace)
-        
-
 
     # Make mechanism chains
     if show_chains:
@@ -544,10 +545,15 @@ def plot_ces(
                     chained_mechanisms.append((chain_counter, (m1, m2)))
                     chain_counter += 1
 
-        chains_xs = [(x_mechanism[c[0]], x_mechanism[c[1]]) for i, c in chained_mechanisms]
-        chains_ys = [(y_mechanism[c[0]], y_mechanism[c[1]]) for i, c in chained_mechanisms]
-        chains_zs = [(z_mechanism[c[0]], z_mechanism[c[1]]) for i, c in chained_mechanisms]
-
+        chains_xs = [
+            (x_mechanism[c[0]], x_mechanism[c[1]]) for i, c in chained_mechanisms
+        ]
+        chains_ys = [
+            (y_mechanism[c[0]], y_mechanism[c[1]]) for i, c in chained_mechanisms
+        ]
+        chains_zs = [
+            (z_mechanism[c[0]], z_mechanism[c[1]]) for i, c in chained_mechanisms
+        ]
 
         for m, mechanism in chained_mechanisms:
 
@@ -560,15 +566,11 @@ def plot_ces(
                 z=chains_zs[m],
                 mode="lines",
                 name="Chains",
-                line={
-                    "dash": "dash",
-                    "color": "black",
-                    "width": chain_width,
-                },
+                line={"dash": "dash", "color": "black", "width": chain_width,},
                 hoverinfo="skip",
             )
-            fig.add_trace(chains_trace)    
-        
+            fig.add_trace(chains_trace)
+
     # 2-relations
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if show_edges:
@@ -583,11 +585,7 @@ def plot_ces(
         if edges:
             # Convert to DataFrame
             edges = pd.DataFrame(
-                dict(
-                    x=x_purview[edges],
-                    y=y_purview[edges],
-                    z=z_purview[edges],
-                )
+                dict(x=x_purview[edges], y=y_purview[edges], z=z_purview[edges],)
             )
 
             # Plot edges separately:
@@ -612,7 +610,7 @@ def plot_ces(
                 relation_color = get_edge_color(relation, colorcode_2_relations)
 
                 legend_mechanisms = []
-                
+
                 # Make all 2-relations traces and legendgroup
                 edge_two_relation_trace = go.Scatter3d(
                     visible=show_links,
@@ -643,18 +641,23 @@ def plot_ces(
 
         if triangles:
             three_relations = list(filter(lambda r: len(r.relata) == 3, relations))
-            #three_relation_orders = [len(r.purview) for r in three_relations]
-            three_relation_orders = [np.mean([len(rr.purview) for rr in r.relata]) for r in three_relations]
-            three_relation_orders = [o/max(three_relation_orders) for o in three_relation_orders]
+            # three_relation_orders = [len(r.purview) for r in three_relations]
+            three_relation_orders = [
+                np.mean([len(rr.purview) for rr in r.relata]) for r in three_relations
+            ]
+            three_relation_orders = [
+                o / max(three_relation_orders) for o in three_relation_orders
+            ]
             three_relations_sizes = normalize_sizes(
-                surface_size_range[0]*surface_opacity, surface_size_range[1]*surface_opacity/2, three_relations
+                surface_size_range[0] * surface_opacity,
+                surface_size_range[1] * surface_opacity / 2,
+                three_relations,
             )
 
             # Extract triangle indices
             i, j, k = zip(*triangles)
 
-            
-            '''triangle_three_relation_trace = go.Mesh3d(
+            """triangle_three_relation_trace = go.Mesh3d(
                     visible=True,
                     legendgroup="All 3-Relations",
                     showlegend=False,
@@ -675,10 +678,10 @@ def plot_ces(
                     hoverinfo="text",
                     hovertext=[hovertext_relation(relation) for relation in three_relations],
                 )
-            fig.add_trace(triangle_three_relation_trace)'''
-            
+            fig.add_trace(triangle_three_relation_trace)"""
+
             cmap = plt.cm.get_cmap(surface_colorscale)
-            color_picker = np.linspace(0,1,len(triangles))
+            color_picker = np.linspace(0, 1, len(triangles))
             random.Random(len(triangles)).shuffle(color_picker)
 
             for r, triangle in tqdm(
@@ -688,7 +691,7 @@ def plot_ces(
                 relation_nodes = list(flatten(relation.mechanisms))
 
                 legend_mechanisms = []
-                                
+
                 triangle_three_relation_trace = go.Mesh3d(
                     visible=show_mesh,
                     legendgroup="All 3-Relations",
@@ -701,29 +704,40 @@ def plot_ces(
                     i=[i[r]],
                     j=[j[r]],
                     k=[k[r]],
-                    colorscale=[[0, 'red'],
-                    [0.5, 'rgb'+str(tuple([int(c*255) for c in cmap(color_picker[r])[:-1]]))],
-                    [1, 'blue']],
+                    colorscale=[
+                        [0, "red"],
+                        [
+                            0.5,
+                            "rgb"
+                            + str(
+                                tuple(
+                                    [int(c * 255) for c in cmap(color_picker[r])[:-1]]
+                                )
+                            ),
+                        ],
+                        [1, "blue"],
+                    ],
                     intensity=[1.0],
-                    intensitymode='cell',
+                    intensitymode="cell",
                     opacity=three_relations_sizes[r],
                     showscale=False,
                     name="All 3-Relations",
                     hoverinfo="text",
                     hovertext=hovertext_relation(relation),
                 )
-                #print(triangle_three_relation_trace)
+                # print(triangle_three_relation_trace)
                 fig.add_trace(triangle_three_relation_trace)
-                
-                
-                
-    
+
     # Create figure
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if axes_range is None:
         axes_range = [
             (min(d) - 10, max(d) + 10)
-            for d in (np.append(x_purview, x_mechanism), np.append(y_purview, y_mechanism), np.append(z_purview, z_mechanism))
+            for d in (
+                np.append(x_purview, x_mechanism),
+                np.append(y_purview, y_mechanism),
+                np.append(z_purview, z_mechanism),
+            )
         ]
 
     axes = [
@@ -763,19 +777,18 @@ def plot_ces(
         autosize=True,
         height=plot_dimensions[0],
         width=plot_dimensions[1],
-        paper_bgcolor='rgba(0,0,0,0)' if transparent_background else 'white',
-        plot_bgcolor='rgba(0,0,0,0)' if transparent_background else 'white',
+        paper_bgcolor="rgba(0,0,0,0)" if transparent_background else "white",
+        plot_bgcolor="rgba(0,0,0,0)" if transparent_background else "white",
     )
 
     # Apply layout
     fig.layout = layout
-    
-    
+
     if save_plot_to_html is True:
         plotly.io.write_html(fig, f"{network_name}_CES.html")
-    elif type(save_plot_to_html)==str:
+    elif type(save_plot_to_html) == str:
         plotly.io.write_html(fig, save_plot_to_html)
-    
+
     if save_plot_to_png is True:
         fig.write_image(
             f"{network_name}_CES.png",
@@ -783,14 +796,14 @@ def plot_ces(
             height=plot_dimensions[1],
             scale=1,
         )
-        
-    elif type(save_plot_to_png)==str:
+
+    elif type(save_plot_to_png) == str:
         fig.write_image(
             save_plot_to_png,
             width=plot_dimensions[0],
             height=plot_dimensions[1],
             scale=1,
- #           transparent=transparent_background,
+            #           transparent=transparent_background,
         )
-        
+
     return fig
