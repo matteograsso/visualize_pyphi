@@ -269,7 +269,7 @@ CAUSE = pyphi.direction.Direction(0)
 EFFECT = pyphi.direction.Direction(1)
 
 
-def distinction_touched(mice, part1, part2, direction):
+def distinction_touched_old(mice, part1, part2, direction):
     mechanism_cut = all(
         [any([m in part for m in mice.mechanism]) for part in [part1, part2]]
     )
@@ -282,6 +282,15 @@ def distinction_touched(mice, part1, part2, direction):
         and mice.direction == direction
     )
     return mechanism_cut or purview_cut or connection_cut
+
+
+def distinction_touched(mice, part1, part2, direction):
+    
+    mechanism_in_part1 = any([m in part1 for m in mice.mechanism])
+    purview_in_part2 = any([p in part2 for p in mice.purview])
+    correct_direction = direction == mice.direction
+    
+    return mechanism_in_part1 and purview_in_part2 and correct_direction
 
 
 def relation_untouched(untouched_ces, relation):
@@ -333,7 +342,7 @@ def get_big_phi(ces, relations, indices, partitions=None):
                     min_phi = lost_phi
                     min_cut = parts, p1, p2, direction
 
-    big_phi = (sum_of_small_phi / 2 ** len(indices)) * (sum_of_small_phi - min_phi)
+    big_phi = (sum_of_small_phi / 2 ** len(indices)) * (min_phi)
     return big_phi, min_cut
 
 
@@ -417,7 +426,7 @@ def get_maximal_ces(system, ces=None, max_k=3):
         ) = compute_rels_and_ces_for_compositional_state(system, compositional_state, ces, max_k)
         phi, cut = get_big_phi(filtered_ces, filtered_relations, system.node_indices)
 
-        if phi > big_phi:
+        if phi >= big_phi:
             maximal = {
                 "ces": filtered_ces,
                 "relations": filtered_relations,
