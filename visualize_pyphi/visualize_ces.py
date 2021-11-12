@@ -212,7 +212,7 @@ def plot_ces(
     axes_range=None,
     eye_coordinates=(0.1, -0.4, 0.025),
     hovermode="x",
-    plot_dimensions=(2500, 2000),
+    plot_dimensions=(2000, 1400),
     save_plot_to_html=True,
     save_plot_to_png=True,
     show_mechanism_base=True,
@@ -775,8 +775,8 @@ def plot_ces(
             )
         ),
         autosize=True,
-        height=plot_dimensions[0],
-        width=plot_dimensions[1],
+        width=plot_dimensions[0],
+        height=plot_dimensions[1],
         paper_bgcolor="rgba(0,0,0,0)" if transparent_background else "white",
         plot_bgcolor="rgba(0,0,0,0)" if transparent_background else "white",
     )
