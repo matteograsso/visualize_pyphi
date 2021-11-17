@@ -6,6 +6,7 @@ from itertools import product
 import numpy as np
 from tqdm.auto import tqdm
 import random
+from operator import attrgetter
 
 def add_node_labels(mice, system):
     mice.node_labels = tuplle()
@@ -183,7 +184,26 @@ def get_all_compositional_states(ces):
     return all_compositional_states
 
 
-def filter_using_sum_of_phi(ces, relations, all_compositional_states):
+def filter_using_sum_of_phi(ces, relations):
+
+    # get all purviews
+    all_purviews = set([(mice.purview, mice.direction) for mice in ces])
+
+    # keep only the mice with max smallphi among conflicts (pick first if ties---it doesnt matter)
+    filtered_ces = [
+        max(
+            [mice for mice in ces if (mice.purview, mice.direction) == purview],
+            key=attrgetter("phi"),
+        )
+        for purview in all_purviews
+    ]
+
+    compositional_state = get_all_compositional_states(filtered_ces)
+    filtered_relations = filter_relations(relations, filtered_ces)
+    return filtered_ces, filtered_relations, compositional_state
+
+
+def filter_using_sum_of_phi_old(ces, relations, all_compositional_states):
     phis = {
         i: sum(
             [
@@ -208,7 +228,6 @@ def filter_using_sum_of_phi(ces, relations, all_compositional_states):
     filtered_relations = filter_relations(relations, filtered_ces)
     return filtered_ces, filtered_relations, max_compositional_state
 
-
 def get_filtered_ces(ces, state, system=None):
 
     if state == "actual":
@@ -225,9 +244,8 @@ def get_filtered_ces(ces, state, system=None):
         filtered_rels = filter_relations(relations, filtered_ces)
 
     elif state == "max_phi":
-        all_compositional_states = get_all_compositional_states(ces)
         filtered_ces, filtered_rels, state = filter_using_sum_of_phi(
-            ces, [], all_compositional_states
+            ces, []
         )
 
     return (
@@ -253,9 +271,8 @@ def get_filtered_ces_and_rels(ces, relations, state, system=None):
         filtered_rels = filter_relations(relations, filtered_ces)
 
     elif state == "max_phi":
-        all_compositional_states = get_all_compositional_states(ces)
         filtered_ces, filtered_rels, state = filter_using_sum_of_phi(
-            ces, relations, all_compositional_states
+            ces, relations
         )
 
     return (
@@ -337,7 +354,6 @@ def get_big_phi(ces, relations, indices, partitions=None):
                 )
 
                 lost_phi = sum_of_small_phi - sum_phi_untouched
-
                 if lost_phi < min_phi:
                     min_phi = lost_phi
                     min_cut = parts, p1, p2, direction
@@ -443,7 +459,7 @@ def get_untouced_ces_and_rels(ces,relations,parts):
                     mice
                     for mice in ces
                     if not distinction_touched(
-                        mice, parts[0], parts[1], parts[2]
+                        mice, parts[1], parts[2], parts[3]
                     )
                 ])
     untouched_relations = [r for r in relations if relation_untouched(untouched_ces, r)]
