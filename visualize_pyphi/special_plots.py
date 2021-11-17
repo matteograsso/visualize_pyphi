@@ -39,7 +39,7 @@ def plot_effect_of_MIP(
 
     Phi, cut = compute.get_big_phi(ces, relations, system.node_indices, partitions)
     untouched_ces, untouched_relations = compute.get_untouced_ces_and_rels(
-        ces, relations, cut[1:]
+        ces, relations, cut
     )
     untouched_relations = [
         r for r in relations if compute.relation_untouched(untouched_ces, r)
@@ -56,7 +56,7 @@ def plot_effect_of_MIP(
     default_uncommon_kwargs = [
         dict(
             surface_colorscale="Greys",
-            surface_opacity=0.2,
+            surface_opacity=0.7,
             show_labels=False,
             show_links=False,
             show_edges=False,
@@ -65,7 +65,7 @@ def plot_effect_of_MIP(
         ),
         dict(
             surface_colorscale="Blues",
-            surface_opacity=0.9,
+            surface_opacity=0.5,
             show_chains=False,
             show_mechanism_base=False
         ),

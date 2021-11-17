@@ -1,27 +1,16 @@
 import pyphi
 import pickle
-import os
 import numpy as np
 from pyphi.convert import nodes2indices as n2i
-from datetime import datetime
 import scipy.io
-import os
-from itertools import *
 from pathlib import Path
 from tqdm import tqdm_notebook
-import pandas as pd
 import string
 import glob
 from scipy.stats import norm
-import itertools
-import sympy
-import random
 from tqdm.auto import tqdm
 
-
 pyphi.config.CACHE_REPERTOIRES = False
-pd.options.display.max_rows = 4000
-
 
 def pklthis(this, name):
     with open(name, "wb") as f:
