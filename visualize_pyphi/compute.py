@@ -184,7 +184,7 @@ def get_all_compositional_states(ces):
     return all_compositional_states
 
 
-def filter_using_sum_of_phi(ces, relations):
+def filter_using_sum_of_distinction_phi(ces, relations):
 
     # get all purviews
     all_purviews = set([(mice.purview, mice.direction) for mice in ces])
@@ -203,16 +203,16 @@ def filter_using_sum_of_phi(ces, relations):
     return filtered_ces, filtered_relations, compositional_state
 
 
-def filter_using_sum_of_phi_old(ces, relations, all_compositional_states):
+def filter_using_sum_of_phi(ces, relations, all_compositional_states):
     phis = {
         i: sum(
             [
-                sum([c.phi for c in filter_ces_by_compositional_state(ces, comp)]),
+                sum([c.phi for c in filter_ces_by_compositional_state(ces, comp[1])]),
                 sum(
                     [
                         r.phi
                         for r in filter_relations(
-                            relations, filter_ces_by_compositional_state(ces, comp)
+                            relations, filter_ces_by_compositional_state(ces, comp[1])
                         )
                     ]
                 ),
@@ -243,10 +243,22 @@ def get_filtered_ces(ces, state, system=None):
         filtered_ces = filter_ces_by_compositional_state(ces, state)
         filtered_rels = filter_relations(relations, filtered_ces)
 
-    elif state == "max_phi":
-        filtered_ces, filtered_rels, state = filter_using_sum_of_phi(
+    elif state == "max_phi_distinction":
+        filtered_ces, filtered_rels, state = filter_using_sum_of_distinction_phi(
             ces, []
         )
+
+    elif state == "max_phi":
+        compositional_states = get_all_compositional_states(ces)
+        filtered_ces, filtered_rels, state = filter_using_sum_of_phi(
+            ces, [], compositional_states
+        )
+        
+    elif state == "BIG_PHI":
+        maximal = get_maximal_ces(system, ces=ces, max_k=3)
+        filtered_ces = maximal['ces']
+        state = maximal['compositional_state']
+        
 
     return (
         filtered_ces,
@@ -270,11 +282,23 @@ def get_filtered_ces_and_rels(ces, relations, state, system=None):
         filtered_ces = filter_ces_by_compositional_state(ces, state)
         filtered_rels = filter_relations(relations, filtered_ces)
 
-    elif state == "max_phi":
-        filtered_ces, filtered_rels, state = filter_using_sum_of_phi(
+    elif state == "max_phi_distinction":
+        filtered_ces, filtered_rels, state = filter_using_sum_of_distinction_phi(
             ces, relations
         )
 
+    elif state == "max_phi":
+        compositional_states = get_all_compositional_states(ces)
+        filtered_ces, filtered_rels, state = filter_using_sum_of_phi(
+            ces, relations, compositional_states
+        )
+        
+    elif state == "BIG_PHI":
+        maximal = get_maximal_ces(system, ces=ces, max_k=3)
+        filtered_ces = maximal['ces']
+        filtered_rels = maximal['relations']
+        state = maximal['compositional_state']
+        
     return (
         filtered_ces,
         filtered_rels,
