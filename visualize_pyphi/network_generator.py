@@ -1,7 +1,80 @@
 import pyphi
 import pickle
 import numpy as np
+<<<<<<< HEAD
 from tqdm import tqdm_notebook
+=======
+from pyphi.convert import nodes2indices as n2i
+import scipy.io
+from pathlib import Path
+from tqdm import tqdm_notebook
+import string
+import glob
+from scipy.stats import norm
+from tqdm.auto import tqdm
+
+pyphi.config.CACHE_REPERTOIRES = False
+
+def pklthis(this, name):
+    with open(name, "wb") as f:
+        pickle.dump(this, f)
+
+
+def loadpkl(name):
+    with open(name, "rb") as f:
+        return pickle.load(f)
+
+
+def strp(x):
+    return strip_punct(str(x))
+
+
+def pickle_name(mech, subsystem):
+    state_name = strip_punct(str(subsystem.state))
+    pickle_dir = Path(f"pickles/{state_name}/")
+    mech_name = f"{strip_punct(str(subsystem.indices2nodes(mech)))}"
+    return f"pickles/{state_name}/{mech_name}.pkl"
+
+
+def save_concept(concept, subsystem):
+    filename = pickle_name(concept.mechanism, subsystem)
+    del concept.subsystem
+    with open(filename, "wb") as f:
+        pickle.dump(concept, f)
+    return filename
+
+
+def flatten(l, ltypes=(list, tuple)):
+    ltype = type(l)
+    l = list(l)
+    i = 0
+    while i < len(l):
+        while isinstance(l[i], ltypes):
+            if not l[i]:
+                l.pop(i)
+                i -= 1
+                break
+            else:
+                l[i : i + 1] = l[i]
+        i += 1
+    return ltype(l)
+
+
+def strip_punct(s):
+    return str(
+        s.translate(str.maketrans({key: None for key in string.punctuation})).replace(
+            " ", ""
+        )
+    )
+
+
+def strp(x):
+    return strip_punct(str(x))
+
+
+def i2n(subsystem, mech):
+    return strp(subsystem.indices2nodes(mech))
+>>>>>>> 3d9f9c5c38175d6d25223f36d622e5ec6cc074a8
 
 
 def save_network(network, network_name=None):

@@ -187,8 +187,8 @@ def plot_ces(
     relations,
     network_name="",
     floor_width_scale=1.5,
-    floor_width_scales=None,
-    floor_height_scale=2,
+    floor_width_scales=[1.5, 2, 2, 1, 1],
+    floor_height_scale=[2, 2, 2, 1.5, 2],
     cause_effect_distance=0.2,
     base_height_scale=2.7,
     base_z_offset=0.2,
@@ -255,7 +255,7 @@ def plot_ces(
                 int(comb(N_units, k + 1)),
                 center=(0, 0),
                 angle=0,
-                z=k * floor_height_scale,
+                z=k * floor_height_scale[k] if len(floor_height_scale)>0 else k*floor_height_scale,
                 scale=floor_width_scales[k]
                 if floor_width_scales
                 else floor_width_scale,
@@ -322,9 +322,9 @@ def plot_ces(
     }
 
     # store all the coordinates of the mechanisms in lists
-    x_mechanism = [base_coordinates[mice.mechanism][0] for mice in ces]
-    y_mechanism = [base_coordinates[mice.mechanism][1] for mice in ces]
-    z_mechanism = [base_coordinates[mice.mechanism][2] for mice in ces]
+    x_mechanism = np.array([base_coordinates[mice.mechanism][0] for mice in ces])
+    y_mechanism = np.array([base_coordinates[mice.mechanism][1] for mice in ces])
+    z_mechanism = np.array([base_coordinates[mice.mechanism][2] for mice in ces])
 
     x_purview = purview_coordinates[:, 0]
     y_purview = purview_coordinates[:, 1]
