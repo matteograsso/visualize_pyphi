@@ -1,9 +1,7 @@
 import pyphi
 import pickle
 import numpy as np
-<<<<<<< HEAD
 from tqdm import tqdm_notebook
-=======
 from pyphi.convert import nodes2indices as n2i
 import scipy.io
 from pathlib import Path
@@ -14,6 +12,7 @@ from scipy.stats import norm
 from tqdm.auto import tqdm
 
 pyphi.config.CACHE_REPERTOIRES = False
+
 
 def pklthis(this, name):
     with open(name, "wb") as f:
@@ -74,7 +73,6 @@ def strp(x):
 
 def i2n(subsystem, mech):
     return strp(subsystem.indices2nodes(mech))
->>>>>>> 3d9f9c5c38175d6d25223f36d622e5ec6cc074a8
 
 
 def save_network(network, network_name=None):
