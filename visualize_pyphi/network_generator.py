@@ -1,6 +1,7 @@
 import pyphi
 import pickle
 import numpy as np
+from tqdm import tqdm_notebook
 from pyphi.convert import nodes2indices as n2i
 import scipy.io
 from pathlib import Path
@@ -11,6 +12,7 @@ from scipy.stats import norm
 from tqdm.auto import tqdm
 
 pyphi.config.CACHE_REPERTOIRES = False
+
 
 def pklthis(this, name):
     with open(name, "wb") as f:
