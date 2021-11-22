@@ -72,11 +72,19 @@ def make_label(node_indices, node_labels=None, bold=False, state=False):
     if state:
         nl = []
         # capitalizing labels of mechs that are on
-        for n, i in zip(node_labels, node_indices):
-            if state[i] == 0:
-                nl.append(n.lower() + "")
-            else:
-                nl.append(n.upper() + "")
+        if not len(state)==len(node_labels):
+            for n, i in zip(node_labels, node_indices):
+                if state[i] == 0:
+                    nl.append(n.lower() + "")
+                else:
+                    nl.append(n.upper() + "")
+        else:
+            for s,l in zip(state,node_labels):
+                if s == 0:
+                    nl.append(l.lower() + "")
+                else:
+                    nl.append(l.upper() + "")
+            
         node_labels = nl
 
         return "<i>" + "".join(node_labels) + "</i>"
@@ -95,7 +103,7 @@ def label_purview(mice, state=False):
 
 
 def hovertext_purview(mice):
-    return f"Distinction: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.maximal_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'maximal_state') else mice.maximal_state}"
+    return f"Distinction: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.maximal_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'maximal_state') else list(mice.maximal_state[0])}"
 
 
 def hovertext_relation(relation):
@@ -103,7 +111,7 @@ def hovertext_relation(relation):
 
     relata_info = "".join(
         [
-            f"<br>Distinction {n}: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.maximal_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'maximal_state') else mice.maximal_state}<br>"
+            f"<br>Distinction {n}: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.maximal_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'maximal_state') else list(mice.maximal_state[0])}<br>"
             for n, mice in enumerate(relata)
         ]
     )
@@ -454,7 +462,7 @@ def plot_ces(
             mice,
             state=list(rel.maximal_state(mice)[0])
             if not hasattr(mice, "maximal_state")
-            else mice.maximal_state
+            else list(mice.maximal_state[0])
             if state_as_lettercase
             else False,
         )

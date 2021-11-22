@@ -22,7 +22,10 @@ def unfold_separated_ces(system):
          for direction in [CAUSE, EFFECT]
         ]
     
-    return pyphi.models.CauseEffectStructure(mices)
+    ces = pyphi.models.CauseEffectStructure(mices)
+    for m in ces:
+        m.node_labels = system.node_labels
+    return ces
         
     
 def compute_relations(subsystem, ces, max_k=3, num_relations=False):
@@ -88,7 +91,7 @@ def filter_ces_by_compositional_state(ces, compositional_state):
         mice
         for mice in ces
         if (
-            tuple([rels.maximal_state(mice)[0][i] for i in mice.purview])
+            tuple(mice.maximal_state[0])
             == compositional_state[mice.direction][mice.purview]
         )
     ]
@@ -146,7 +149,7 @@ def get_all_compositional_states(ces):
         # define some variables for later use
         purview = mice.purview
         mechanism = mice.mechanism
-        max_state = tuple([rels.maximal_state(mice)[0][element] for element in purview])
+        max_state = tuple(mice.maximal_state[0])
         direction = mice.direction
         phi = mice.phi
 
@@ -378,6 +381,8 @@ def get_big_phi(ces, relations, indices, partitions=None):
                 )
 
                 lost_phi = sum_of_small_phi - sum_phi_untouched
+                
+                touched = [r for r in relations if r not in untouched_relations]
                 if lost_phi < min_phi:
                     min_phi = lost_phi
                     min_cut = parts, p1, p2, direction
