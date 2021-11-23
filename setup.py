@@ -9,7 +9,12 @@ setup(
     author_email='bjorneju@gmail.com',
     license='BSD 2-clause',
     packages=['visualize_pyphi'],
-    install_requires=['numpy'],
+    install_requires=['pyphi',
+                      'tqdm',
+                      'itertools',
+                      'operator',
+                      'numpy',
+                      ],
     classifiers=[
         'Development Status :: 1 - Planning',
         'Intended Audience :: Science/Research',
