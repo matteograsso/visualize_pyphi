@@ -17,7 +17,8 @@ setup(
                       'pandas',
                       'plotly',
                       'matplotlib',
-                      'scipy'
+                      'scipy',
+                      'pickle'
                       ],
     classifiers=[
         'Development Status :: 1 - Planning',
