@@ -14,6 +14,10 @@ setup(
                       'itertools',
                       'operator',
                       'numpy',
+                      'pandas',
+                      'plotly',
+                      'matplotlib',
+                      'scipy'
                       ],
     classifiers=[
         'Development Status :: 1 - Planning',
