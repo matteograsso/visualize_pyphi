@@ -18,7 +18,8 @@ setup(
                       'plotly',
                       'matplotlib',
                       'scipy',
-                      'pickle'
+                      'pickle',
+                      'imageio'
                       ],
     classifiers=[
         'Development Status :: 1 - Planning',
