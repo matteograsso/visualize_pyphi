@@ -7,6 +7,6 @@ from . import compute
 
 import pyphi
 
-pyphi.config.MEASURE = "BLD"
+pyphi.config.REPERTOIRE_DISTANCE = "AID"
 pyphi.config.REPR_VERBOSITY = 1
 pyphi.config.PARTITION_TYPE = 'TRI'
