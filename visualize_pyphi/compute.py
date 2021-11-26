@@ -80,6 +80,24 @@ def compositional_state_from_system_state(state, system_indices=None):
     }
 
 
+def add_missing_purviews(ces, filtered_ces):
+    
+    all_purviews = set([(mice.purview, mice.direction) for mice in ces])
+    filtered_purviews = set([(mice.purview, mice.direction) for mice in filtered_ces])
+    
+    filtered_ces = list(filtered_ces)
+    
+    for purview, direction in all_purviews.difference(filtered_purviews):
+        phi = 0
+        missing_mice = None
+        for mice in ces:
+            if mice.purview == purview and mice.direction == direction and mice.phi>phi:
+                missing_mice = mice
+                
+        filtered_ces.append(missing_mice)        
+        
+    return pyphi.models.CauseEffectStructure(filtered_ces)
+
 def filter_ces_by_compositional_state(ces, compositional_state):
 
     # first separate the ces into mices and define the directions
@@ -124,8 +142,11 @@ def filter_ces_by_compositional_state(ces, compositional_state):
             )
         )
         filtered_ces.append(mices[np.argmax([mice.phi for mice in mices])])
-
-    return pyphi.models.CauseEffectStructure(filtered_ces)
+    
+    filtered_ces = pyphi.models.CauseEffectStructure(filtered_ces)
+    
+    filtered_ces = add_missing_purviews(ces, filtered_ces)
+    return filtered_ces
 
 
 def filter_relations(relations, filtered_ces):
