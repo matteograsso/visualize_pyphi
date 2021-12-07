@@ -7,6 +7,7 @@ from . import compute
 
 import pyphi
 
+pyphi.config.REPERTOIRE_DISTANCE = "AID"
 pyphi.config.REPR_VERBOSITY = 1
 pyphi.config.PARTITION_TYPE = 'TRI'
 pyphi.config.REPERTOIRE_DISTANCE = 'AID'
