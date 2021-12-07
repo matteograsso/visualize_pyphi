@@ -652,7 +652,7 @@ def get_component_phi(ces, relations, component_distinctions):
     return component_phi, dominant_distinction
 
 
-def filter_ces(subsystem, ces, compositional_state):
+def filter_ces(subsystem, ces, compositional_state, max_relations_k=3):
 
     # first separate the ces into mices and define the directions
     c = pyphi.direction.Direction.CAUSE
@@ -708,7 +708,9 @@ def filter_ces(subsystem, ces, compositional_state):
         ]
         max_ces.append(
             get_maximal_ces(
-                subsystem, ces=pyphi.models.CauseEffectStructure(filtered_ces), max_k=3
+                subsystem,
+                ces=pyphi.models.CauseEffectStructure(filtered_ces),
+                max_k=max_relations_k,
             )
         )
 
