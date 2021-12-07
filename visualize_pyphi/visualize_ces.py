@@ -94,16 +94,16 @@ def make_label(node_indices, node_labels=None, bold=False, state=False):
 
 def label_mechanism(mice, bold=False, state=False):
     return make_label(
-        mice.mechanism, node_labels=mice.node_labels, bold=bold, state=state
+        mice.mechanism, node_labels=mice.ria.node_labels, bold=bold, state=state
     )
 
 
 def label_purview(mice, state=False):
-    return make_label(mice.purview, node_labels=mice.node_labels, state=state)
+    return make_label(mice.purview, node_labels=mice.ria.node_labels, state=state)
 
 
 def hovertext_purview(mice):
-    return f"Distinction: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.maximal_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'maximal_state') else list(mice.maximal_state[0])}"
+    return f"Distinction: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.specified_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'specified_state') else list(mice.specified_state[0])}"
 
 
 def hovertext_relation(relation):
@@ -111,7 +111,7 @@ def hovertext_relation(relation):
 
     relata_info = "".join(
         [
-            f"<br>Distinction {n}: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.maximal_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'maximal_state') else list(mice.maximal_state[0])}<br>"
+            f"<br>Distinction {n}: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.specified_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'specified_state') else list(mice.specified_state[0])}<br>"
             for n, mice in enumerate(relata)
         ]
     )
@@ -460,9 +460,9 @@ def plot_ces(
     purview_labels = [
         label_purview(
             mice,
-            state=list(rel.maximal_state(mice)[0])
-            if not hasattr(mice, "maximal_state")
-            else list(mice.maximal_state[0])
+            state=list(rel.specified_state(mice)[0])
+            if not hasattr(mice, "specified_state")
+            else list(mice.specified_state[0])
             if state_as_lettercase
             else False,
         )

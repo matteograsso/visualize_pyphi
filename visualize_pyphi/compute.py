@@ -714,4 +714,4 @@ def filter_ces(subsystem, ces, compositional_state, max_relations_k=3):
             )
         )
 
-    return max_ces
+    return max(max_ces, key=lambda c: c['big phi'])
