@@ -7,6 +7,7 @@ import numpy as np
 from tqdm.auto import tqdm
 import random
 from operator import attrgetter
+from joblib import Parallel, delayed
 
 
 def add_node_labels(mice, system):
@@ -714,4 +715,72 @@ def filter_ces(subsystem, ces, compositional_state, max_relations_k=3):
             )
         )
 
-    return max(max_ces, key=lambda c: c['big phi'])
+    return max(max_ces, key=lambda c: c["big phi"])
+
+
+def resolve_conflicts(subsystem, ces, max_relations_k=3):
+    c = pyphi.direction.Direction.CAUSE
+    e = pyphi.direction.Direction.EFFECT
+    cause_purviews = set([mice.purview for mice in ces if mice.direction == c])
+    effect_purviews = set([mice.purview for mice in ces if mice.direction == e])
+
+    # the following two loops do the filtering, and are identical except the first does cause and the other effect
+    # If the same purview is specified by multiple mechinisms, we only keep the one with max phi
+    causes = []
+    for purview in cause_purviews:
+        mices = list(
+            filter(lambda mice: mice.direction == c and mice.purview == purview, ces,)
+        )
+        causes.append(mices[np.argmax([mice.phi for mice in mices])])
+
+    effects = []
+    for purview in effect_purviews:
+        mices = list(
+            filter(lambda mice: mice.direction == e and mice.purview == purview, ces,)
+        )
+        effects.append(mices[np.argmax([mice.phi for mice in mices])])
+
+    # remove any unlinked mice
+    causeeffect_mechanisms = set([cause.mechanism for cause in causes]).intersection(
+        set([effect.mechanism for effect in effects])
+    )
+    causeeffects = causes + effects
+    filtered_ces = [
+        mice for mice in causeeffects if mice.mechanism in causeeffect_mechanisms
+    ]
+    return get_maximal_ces(
+        subsystem,
+        ces=pyphi.models.CauseEffectStructure(filtered_ces),
+        max_k=max_relations_k,
+    )
+
+
+def filter_ces_parallel(
+    subsystem, ces, compositional_state, max_relations_k=3, n_jobs=120
+):
+
+    # first separate the ces into mices and define the directions
+    c = pyphi.direction.Direction.CAUSE
+    e = pyphi.direction.Direction.EFFECT
+
+    # next we run through all the mices and append any mice that has a state corresponding to the compositional state
+    mices_with_correct_state = dict()  # compositional_state.copy()
+    for mice in ces:
+        if (
+            tuple(mice.specified_state[0])
+            == compositional_state[mice.direction][mice.purview]
+        ):
+            if not (mice.direction, mice.purview) in mices_with_correct_state.keys():
+                mices_with_correct_state[(mice.direction, mice.purview)] = [mice]
+            else:
+                mices_with_correct_state[(mice.direction, mice.purview)].append(mice)
+
+    all_cess = list(itertools.product(*mices_with_correct_state.values()))
+
+    max_ces = []
+    max_ces = Parallel(n_jobs=n_jobs, verbose=10, backend="multiprocessing")(
+        delayed(resolve_conflicts)(subsystem, ces) for ces in tqdm(all_cess)
+    )
+
+    return max(max_ces, key=lambda c: c["big phi"])
+

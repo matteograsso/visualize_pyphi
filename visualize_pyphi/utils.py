@@ -1,5 +1,8 @@
 import pandas as pd
 import string
+import itertools
+import pyphi
+from joblib import Parallel, delayed
 
 
 def flatten(l, ltypes=(list, tuple)):
@@ -54,3 +57,39 @@ def sepces2df(sepces, subsystem, csv_name=None):
     if csv_name:
         df.to_csv(csv_name)
     return df
+
+
+def chunk_iterable(iterable, size):
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, size))
+        if not chunk:
+            break
+        yield chunk
+
+
+def compute_k_relations_chunk(chunk):
+    relata = chunk
+    k_relations = [pyphi.relations.relation(relatum) for relatum in relata]
+    k_relations = list(filter(lambda r: r.phi > 0, k_relations))
+    return k_relations
+
+
+def parallcompute_ks_relations(
+    subsystem, separated_ces, ks, n_jobs=-1, chunk_size=5000
+):
+    all_purviews = separated_ces
+    ks_relations = []
+    for k in ks:
+        relata = [
+            pyphi.relations.Relata(subsystem, pair)
+            for pair in itertools.combinations(all_purviews, k)
+        ]
+        chunks = chunk_iterable(relata, chunk_size)
+        k_relations = Parallel(n_jobs=n_jobs, verbose=10, backend="multiprocessing")(
+            delayed(compute_k_relations_chunk)(chunk) for chunk in tqdm_notebook(chunks)
+        )
+        k_relations_flat = list(itertools.chain.from_iterable(k_relations))
+        ks_relations.extend(k_relations_flat)
+
+    return ks_relations
