@@ -10,9 +10,291 @@ from operator import attrgetter
 from joblib import Parallel, delayed
 
 
-def add_node_labels(mice, system):
-    mice.node_labels = tuple()
-    return mice
+def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[]):
+    # Find the maximally irreducible CES for a given subsystem
+    
+    # unfold unfiltered, separated ces for the system
+    if ces == None:
+        directions = [pyphi.direction.Direction.CAUSE, pyphi.direction.Direction.EFFECT]
+        print("unfolding CES")
+        ces = pyphi.models.subsystem.CauseEffectStructure(
+            [
+                system.find_mice(d, m)
+                for d in directions
+                for m in pyphi.utils.powerset(system.node_indices, nonempty=True)
+            ],
+            subsystem=system,
+        )
+        for m in ces:
+            m.node_labels = system.node_labels
+
+    # Find all compositional states, if they are not provided
+    if len(compositional_states)==0:
+        compositional_states = get_all_compositional_states(ces)
+
+    # Filter the CES and compute Big Phi for every compositional state
+    big_phi = 0
+    maximal = []
+    
+    for compositional_state in (
+        compositional_states
+        if len(compositional_states) < 2
+        else tqdm(
+            compositional_states, desc="Computing Big Phi for all compositional states"
+        )
+    ):
+        # Filter the CES and relations
+        (
+            filtered_ces,
+            filtered_relations,
+            compositional_state,
+        ) = compute_rels_and_ces_for_compositional_state(
+            system, compositional_state, ces, max_k
+        )
+        # Compute Big Phi
+        phi, cut = get_big_phi(filtered_ces, filtered_relations, system.node_indices)
+
+        # Save values for highest BigPhi So far (or append if a tie)
+        if phi > big_phi:
+            maximal = [{
+                "ces": filtered_ces,
+                "relations": filtered_relations,
+                "compositional_state": compositional_state,
+                "big phi": phi,
+                "MIP": cut,
+            }]
+            big_phi = phi
+        elif phi == big_phi and phi > 0:
+            maximal.append({
+                "ces": filtered_ces,
+                "relations": filtered_relations,
+                "compositional_state": compositional_state,
+                "big phi": phi,
+                "MIP": cut,
+            })    
+        elif phi == big_phi and phi == 0:
+            maximal = [{
+                "ces": filtered_ces,
+                "relations": filtered_relations,
+                "compositional_state": compositional_state,
+                "big phi": phi,
+                "MIP": cut,
+            }]
+
+    return maximal
+
+def filter_ces(
+    subsystem, ces, compositional_state, max_relations_k=3, n_jobs=120
+):
+
+    # first separate the ces into mices and define the directions
+    c = pyphi.direction.Direction.CAUSE
+    e = pyphi.direction.Direction.EFFECT
+
+    # next we run through all the mices and append any mice that has a state corresponding to the compositional state
+    mices_with_correct_state = dict()  # compositional_state.copy()
+    for mice in ces:
+        if (
+            tuple(mice.specified_state[0])
+            == compositional_state[mice.direction][mice.purview]
+        ):
+            if not (mice.direction, mice.purview) in mices_with_correct_state.keys():
+                mices_with_correct_state[(mice.direction, mice.purview)] = [mice]
+            else:
+                mices_with_correct_state[(mice.direction, mice.purview)].append(mice)
+
+    all_cess = list(itertools.product(*mices_with_correct_state.values()))
+
+    max_ces = []
+    if len(all_cess)>n_jobs:
+        max_ces = Parallel(n_jobs=n_jobs, verbose=10, backend="multiprocessing")(
+            delayed(resolve_conflicts)(subsystem, ces, max_relations_k) for ces in all_cess
+        )
+    else:
+        max_ces = [resolve_conflicts(subsystem, ces, max_relations_k) for ces in tqdm(all_cess)]
+
+    return max(max_ces, key=lambda c: c[0]["big phi"])
+
+
+def resolve_conflicts(subsystem, ces, max_relations_k=3):
+
+    # the following two loops do the filtering, and are identical except the first does cause and the other effect
+    # If the same purview is specified by multiple mechinisms, we only keep the one with max phi
+    causes = [mice for mice in ces if mice.direction == CAUSE]
+    effects = [mice for mice in ces if mice.direction == EFFECT]
+
+    # remove any unlinked mice
+    causeeffect_mechanisms = set([cause.mechanism for cause in causes]).intersection(
+        set([effect.mechanism for effect in effects])
+    )
+    causeeffects = causes + effects
+    filtered_ces = [
+        mice for mice in causeeffects if mice.mechanism in causeeffect_mechanisms
+    ]
+    return get_maximal_ces(
+        subsystem,
+        ces=pyphi.models.CauseEffectStructure(filtered_ces),
+        max_k=max_relations_k,
+    )
+
+
+
+def get_big_phi(ces, relations, indices, partitions=None):
+
+    # Getting the small phi values of each (linked) distinctions and computes their sum
+    # NOTE: this first part was post hoc added to make computations work with linked distinctions
+    phis = [
+        min([cause.phi, effect.phi])
+        for cause, effect in zip(
+            [mice for mice in ces if mice.direction == CAUSE],
+            [mice for mice in ces if mice.direction == EFFECT],
+        )
+    ]
+    sum_of_small_phi = sum(phis) + sum([r.phi for r in relations])
+
+    # Assuming single unit systems are irreducible by definition
+    if len(indices) == 1:
+        return sum_of_small_phi, (((), ()), "disintegration")
+
+    # Getting all possible bipartitions of the system (if no specific set of partitions were provided)
+    if partitions == None:
+        partitions = [
+            part
+            for part in pyphi.partition.bipartition(indices)
+            if all([len(p) > 0 for p in part])
+        ]
+
+    # keeping track of the informativeness for each cut, to find the minimal one to use in Big Phi
+    informativeness = np.inf
+    
+    # Looping through every bipartition
+    for parts in (
+        tqdm(partitions, desc="System partitions")
+        if len(partitions) > 100 and len(indices) > 4
+        else partitions
+    ):
+        # looping through the four types of cuts between the parts
+        for p1, p2, direction in product(parts, parts, [CAUSE, EFFECT]):
+            # Making sure the two parts are different
+            if not p1 == p2:
+                
+                # Finding the mices that are untouched by the cut
+                untouched_mices = pyphi.models.CauseEffectStructure(
+                    [
+                        mice
+                        for mice in ces
+                        if not distinction_touched(mice, p1, p2, direction)
+                    ]
+                )
+                
+                # Getting the mechanisms that specify untouched relations
+                # NOTE: This is needed do to the linking of purviews to kill purviews linked to killed "distinctions"
+                causeeffect_mechanisms = set(
+                    [
+                        mice.mechanism
+                        for mice in untouched_mices
+                        if mice.direction == CAUSE
+                    ]
+                ).intersection(
+                    set(
+                        [
+                            mice.mechanism
+                            for mice in untouched_mices
+                            if mice.direction == EFFECT
+                        ]
+                    )
+                )
+                
+                # Keeping MICEs specified by mechanisms that have both a cause and an effect
+                untouched_ces = pyphi.models.CauseEffectStructure(
+                    [
+                        mice
+                        for mice in untouched_mices
+                        if mice.mechanism in causeeffect_mechanisms
+                    ]
+                )
+                
+                # Computing relations for the untouched CES
+                untouched_relations = [
+                    r for r in relations if relation_untouched(untouched_ces, r)
+                ]
+
+                # Getting small phi for distinctions
+                # NOTE: Assuming the causes and effects are ordered in the same way...
+                phis = [
+                    min([cause.phi, effect.phi])
+                    for cause, effect in zip(
+                        [mice for mice in untouched_ces if mice.direction == CAUSE],
+                        [mice for mice in untouched_ces if mice.direction == EFFECT],
+                    )
+                ]
+
+                # computing the sum of small phi for Big Phi computation
+                sum_phi_untouched = sum(phis) + sum(
+                    [r.phi for r in untouched_relations]
+                )
+
+                # Checking how much small phi is lost by the partition
+                lost_phi = sum_of_small_phi - sum_phi_untouched
+
+                # If this cut is the least destructive cut found so far, we save some values
+                if lost_phi < informativeness:
+                    informativeness = lost_phi
+                    min_cut = parts, p1, p2, direction
+    
+    # Computing selectivity 
+    # NOTE: the denominator must be corrected to allow comparison of systems with differing sizes
+    selectivity = (sum_of_small_phi / 2 ** len(indices))
+    
+    # Compute Big Phi and return
+    big_phi = selectivity * (informativeness)
+    return big_phi, min_cut
+
+
+def compute_relations(subsystem, ces, max_k=3, num_relations=False):
+    # Compute a number of relations up to order "max_k"
+    
+    relations = []
+    # Loop through every order relation between 2 and max_k
+    for k in range(2, max_k + 1):
+        # find all the relata
+        relata = [
+            rels.Relata(subsystem, mices)
+            for mices in itertools.combinations(ces, k)
+            if all([mice.phi > 0 for mice in mices])
+        ]
+        
+        # Pick a random sample of the relata, if only some of them are to be checked for irreducibility
+        if num_relations:
+            relata = random.sample(relata, num_relations)
+
+        # Compute the relations for all the relata
+        k_relations = [
+            rels.relation(relatum)
+            for relatum in (tqdm(relata) if len(relata) > 5000 else relata)
+        ]
+        
+        # remove any reducible relations
+        k_relations = list(filter(lambda r: r.phi > 0, k_relations))
+        relations.extend(k_relations)
+        
+    return relations
+
+
+def distinction_touched(mice, part1, part2, direction):
+    # Check if a particular MICE is touched by a specific partition
+    mechanism_in_part1 = any([m in part1 for m in mice.mechanism])
+    purview_in_part2 = any([p in part2 for p in mice.purview])
+    correct_direction = direction == mice.direction
+
+    return mechanism_in_part1 and purview_in_part2 and correct_direction
+
+
+def relation_untouched(untouched_ces, relation):
+    # Check if a relation is specified by an "untouched" CES
+    relata_in_ces = all([relatum in untouched_ces for relatum in relation.relata])
+    
+    return relata_in_ces
 
 
 def unfold_separated_ces(system):
@@ -39,27 +321,6 @@ def unfold_separated_ces(system):
     for m in ces:
         m.node_labels = system.node_labels
     return ces
-
-
-def compute_relations(subsystem, ces, max_k=3, num_relations=False):
-    relations = []
-    for k in range(2, max_k + 1):
-        relata = [
-            rels.Relata(subsystem, mices)
-            for mices in itertools.combinations(ces, k)
-            if all([mice.phi > 0 for mice in mices])
-        ]
-
-        if num_relations:
-            relata = random.sample(relata, num_relations)
-
-        k_relations = [
-            rels.relation(relatum)
-            for relatum in (tqdm(relata) if len(relata) > 5000 else relata)
-        ]
-        k_relations = list(filter(lambda r: r.phi > 0, k_relations))
-        relations.extend(k_relations)
-    return relations
 
 
 def compositional_state_from_system_state(state, system_indices=None):
@@ -89,27 +350,52 @@ def compositional_state_from_system_state(state, system_indices=None):
     }
 
 
-def add_missing_purviews(ces, filtered_ces):
+def get_all_compositional_states(ces):
+    c = pyphi.direction.Direction.CAUSE
+    e = pyphi.direction.Direction.EFFECT
 
-    all_purviews = set([(mice.purview, mice.direction) for mice in ces])
-    filtered_purviews = set([(mice.purview, mice.direction) for mice in filtered_ces])
+    # now we make a nested dict that contains all the purviews with their related states, mechanisms, and phi values
+    all_purviews = {c: dict(), e: dict()}
 
-    filtered_ces = list(filtered_ces)
+    # we loop through every mice in the separated CES
+    for mice in ces:
 
-    for purview, direction in all_purviews.difference(filtered_purviews):
-        phi = 0
-        missing_mice = None
-        for mice in ces:
-            if (
-                mice.purview == purview
-                and mice.direction == direction
-                and mice.phi > phi
-            ):
-                missing_mice = mice
+        # define some variables for later use
+        purview = mice.purview
+        mechanism = mice.mechanism
+        max_state = tuple(mice.specified_state[0])
+        direction = mice.direction
+        phi = mice.phi
 
-        filtered_ces.append(missing_mice)
+        # check if the purview is already in our dict
+        if len(max_state) > 0:
+            if purview in all_purviews[direction]:
+                # check if the purview is already represented with this state
+                if not max_state in all_purviews[direction][purview]:
+                    all_purviews[direction][purview].append(max_state)
+            else:
+                all_purviews[direction][purview] = [max_state]
 
-    return pyphi.models.CauseEffectStructure(filtered_ces)
+    cause_states = [
+        {
+            purv: purview_state
+            for purv, purview_state in zip(all_purviews[c].keys(), purview_states)
+        }
+        for purview_states in product(*all_purviews[c].values())
+    ]
+    effect_states = [
+        {
+            purv: purview_state
+            for purv, purview_state in zip(all_purviews[e].keys(), purview_states)
+        }
+        for purview_states in product(*all_purviews[e].values())
+    ]
+
+    all_compositional_states = [
+        {c: c_state, e: e_state}
+        for c_state, e_state in product(cause_states, effect_states,)
+    ]
+    return all_compositional_states
 
 
 def filter_ces_by_compositional_state(ces, compositional_state):
@@ -176,54 +462,6 @@ def filter_relations(relations, filtered_ces):
             lambda r: all([relatum in filtered_ces for relatum in r.relata]), relations
         )
     )
-
-
-def get_all_compositional_states(ces):
-    c = pyphi.direction.Direction.CAUSE
-    e = pyphi.direction.Direction.EFFECT
-
-    # now we make a nested dict that contains all the purviews with their related states, mechanisms, and phi values
-    all_purviews = {c: dict(), e: dict()}
-
-    # we loop through every mice in the separated CES
-    for mice in ces:
-
-        # define some variables for later use
-        purview = mice.purview
-        mechanism = mice.mechanism
-        max_state = tuple(mice.specified_state[0])
-        direction = mice.direction
-        phi = mice.phi
-
-        # check if the purview is already in our dict
-        if len(max_state) > 0:
-            if purview in all_purviews[direction]:
-                # check if the purview is already represented with this state
-                if not max_state in all_purviews[direction][purview]:
-                    all_purviews[direction][purview].append(max_state)
-            else:
-                all_purviews[direction][purview] = [max_state]
-
-    cause_states = [
-        {
-            purv: purview_state
-            for purv, purview_state in zip(all_purviews[c].keys(), purview_states)
-        }
-        for purview_states in product(*all_purviews[c].values())
-    ]
-    effect_states = [
-        {
-            purv: purview_state
-            for purv, purview_state in zip(all_purviews[e].keys(), purview_states)
-        }
-        for purview_states in product(*all_purviews[e].values())
-    ]
-
-    all_compositional_states = [
-        {c: c_state, e: e_state}
-        for c_state, e_state in product(cause_states, effect_states,)
-    ]
-    return all_compositional_states
 
 
 def filter_using_sum_of_distinction_phi(ces, relations):
@@ -373,118 +611,6 @@ def distinction_touched_old(mice, part1, part2, direction):
     return mechanism_cut or purview_cut or connection_cut
 
 
-def distinction_touched(mice, part1, part2, direction):
-
-    mechanism_in_part1 = any([m in part1 for m in mice.mechanism])
-    purview_in_part2 = any([p in part2 for p in mice.purview])
-    correct_direction = direction == mice.direction
-
-    return mechanism_in_part1 and purview_in_part2 and correct_direction
-
-
-def relation_untouched(untouched_ces, relation):
-    relata_in_ces = all([relatum in untouched_ces for relatum in relation.relata])
-    return relata_in_ces
-
-
-def context_relations(relations, distinctions):
-    return [
-        relation
-        for relation in relations
-        if (
-            any([relatum in distinctions for relatum in relation.relata])
-            and not all([relatum in distinctions for relatum in relation.relata])
-        )
-    ]
-
-
-def get_big_phi(ces, relations, indices, partitions=None):
-
-    phis = [
-        min([cause.phi, effect.phi])
-        for cause, effect in zip(
-            [mice for mice in ces if mice.direction == CAUSE],
-            [mice for mice in ces if mice.direction == EFFECT],
-        )
-    ]
-    sum_of_small_phi = sum(phis) + sum([r.phi for r in relations])
-
-    if len(indices) == 1:
-        return sum_of_small_phi, (((), ()), "disintegration")
-
-    if partitions == None:
-        partitions = [
-            part
-            for part in pyphi.partition.bipartition(indices)
-            if all([len(p) > 0 for p in part])
-        ]
-
-    min_phi = np.inf
-    for parts in (
-        tqdm(partitions, desc="System partitions")
-        if len(partitions) > 100 and len(indices) > 4
-        else partitions
-    ):
-        for p1, p2, direction in product(parts, parts, [CAUSE, EFFECT]):
-            if not p1 == p2:
-                untouched_mices = pyphi.models.CauseEffectStructure(
-                    [
-                        mice
-                        for mice in ces
-                        if not distinction_touched(mice, p1, p2, direction)
-                    ]
-                )
-
-                causeeffect_mechanisms = set(
-                    [
-                        mice.mechanism
-                        for mice in untouched_mices
-                        if mice.direction == CAUSE
-                    ]
-                ).intersection(
-                    set(
-                        [
-                            mice.mechanism
-                            for mice in untouched_mices
-                            if mice.direction == EFFECT
-                        ]
-                    )
-                )
-                untouched_ces = pyphi.models.CauseEffectStructure(
-                    [
-                        mice
-                        for mice in untouched_mices
-                        if mice.mechanism in causeeffect_mechanisms
-                    ]
-                )
-
-                untouched_relations = [
-                    r for r in relations if relation_untouched(untouched_ces, r)
-                ]
-
-                phis = [
-                    min([cause.phi, effect.phi])
-                    for cause, effect in zip(
-                        [mice for mice in untouched_ces if mice.direction == CAUSE],
-                        [mice for mice in untouched_ces if mice.direction == EFFECT],
-                    )
-                ]
-
-                sum_phi_untouched = sum(phis) + sum(
-                    [r.phi for r in untouched_relations]
-                )
-
-                lost_phi = sum_of_small_phi - sum_phi_untouched
-
-                touched = [r for r in relations if r not in untouched_relations]
-                if lost_phi < min_phi:
-                    min_phi = lost_phi
-                    min_cut = parts, p1, p2, direction
-
-    big_phi = (sum_of_small_phi / 2 ** len(indices)) * (min_phi)
-    return big_phi, min_cut
-
-
 def compute_rels_and_ces_for_compositional_state(system, state, ces, max_k=3):
 
     if type(state) is tuple:
@@ -539,55 +665,6 @@ def get_all_ces(system, ces=None):
         )
 
     return all_ces
-
-
-def get_maximal_ces(system, ces=None, max_k=3):
-
-    # unfold ces
-    if ces == None:
-        directions = [pyphi.direction.Direction.CAUSE, pyphi.direction.Direction.EFFECT]
-        print("unfolding CES")
-        ces = pyphi.models.subsystem.CauseEffectStructure(
-            [
-                system.find_mice(d, m)
-                for d in directions
-                for m in pyphi.utils.powerset(system.node_indices, nonempty=True)
-            ],
-            subsystem=system,
-        )
-        for m in ces:
-            m.node_labels = system.node_labels
-
-    compositional_states = get_all_compositional_states(ces)
-
-    big_phi = 0
-    for compositional_state in (
-        compositional_states
-        if len(compositional_states) < 2
-        else tqdm(
-            compositional_states, desc="Computing Big Phi for all compositional states"
-        )
-    ):
-        (
-            filtered_ces,
-            filtered_relations,
-            compositional_state,
-        ) = compute_rels_and_ces_for_compositional_state(
-            system, compositional_state, ces, max_k
-        )
-        phi, cut = get_big_phi(filtered_ces, filtered_relations, system.node_indices)
-
-        if phi >= big_phi:
-            maximal = {
-                "ces": filtered_ces,
-                "relations": filtered_relations,
-                "compositional_state": compositional_state,
-                "big phi": phi,
-                "MIP": cut,
-            }
-            big_phi = phi
-
-    return maximal
 
 
 def get_untouced_ces_and_rels(ces, relations, parts):
@@ -653,134 +730,36 @@ def get_component_phi(ces, relations, component_distinctions):
     return component_phi, dominant_distinction
 
 
-def filter_ces(subsystem, ces, compositional_state, max_relations_k=3):
 
-    # first separate the ces into mices and define the directions
-    c = pyphi.direction.Direction.CAUSE
-    e = pyphi.direction.Direction.EFFECT
+def add_missing_purviews(ces, filtered_ces):
 
-    # next we run through all the mices and append any mice that has a state corresponding to the compositional state
-    mices_with_correct_state = dict()  # compositional_state.copy()
-    for mice in ces:
+    all_purviews = set([(mice.purview, mice.direction) for mice in ces])
+    filtered_purviews = set([(mice.purview, mice.direction) for mice in filtered_ces])
+
+    filtered_ces = list(filtered_ces)
+
+    for purview, direction in all_purviews.difference(filtered_purviews):
+        phi = 0
+        missing_mice = None
+        for mice in ces:
+            if (
+                mice.purview == purview
+                and mice.direction == direction
+                and mice.phi > phi
+            ):
+                missing_mice = mice
+
+        filtered_ces.append(missing_mice)
+
+    return pyphi.models.CauseEffectStructure(filtered_ces)
+
+
+def context_relations(relations, distinctions):
+    return [
+        relation
+        for relation in relations
         if (
-            tuple(mice.specified_state[0])
-            == compositional_state[mice.direction][mice.purview]
-        ):
-            if not (mice.direction, mice.purview) in mices_with_correct_state.keys():
-                mices_with_correct_state[(mice.direction, mice.purview)] = [mice]
-            else:
-                mices_with_correct_state[(mice.direction, mice.purview)].append(mice)
-
-    all_cess = list(itertools.product(*mices_with_correct_state.values()))
-
-    max_ces = []
-    for ces in tqdm(all_cess) if len(all_cess) > 20 else all_cess:
-        # next we find the set of purviews (congruent with the compositional state) specified by the system
-        cause_purviews = set([mice.purview for mice in ces if mice.direction == c])
-        effect_purviews = set([mice.purview for mice in ces if mice.direction == e])
-
-        # the following two loops do the filtering, and are identical except the first does cause and the other effect
-        # If the same purview is specified by multiple mechinisms, we only keep the one with max phi
-        causes = []
-        for purview in cause_purviews:
-            mices = list(
-                filter(
-                    lambda mice: mice.direction == c and mice.purview == purview, ces,
-                )
-            )
-            causes.append(mices[np.argmax([mice.phi for mice in mices])])
-
-        effects = []
-        for purview in effect_purviews:
-            mices = list(
-                filter(
-                    lambda mice: mice.direction == e and mice.purview == purview, ces,
-                )
-            )
-            effects.append(mices[np.argmax([mice.phi for mice in mices])])
-
-        # remove any unlinked mice
-        causeeffect_mechanisms = set(
-            [cause.mechanism for cause in causes]
-        ).intersection(set([effect.mechanism for effect in effects]))
-        causeeffects = causes + effects
-        filtered_ces = [
-            mice for mice in causeeffects if mice.mechanism in causeeffect_mechanisms
-        ]
-        max_ces.append(
-            get_maximal_ces(
-                subsystem,
-                ces=pyphi.models.CauseEffectStructure(filtered_ces),
-                max_k=max_relations_k,
-            )
+            any([relatum in distinctions for relatum in relation.relata])
+            and not all([relatum in distinctions for relatum in relation.relata])
         )
-
-    return max(max_ces, key=lambda c: c["big phi"])
-
-
-def resolve_conflicts(subsystem, ces, max_relations_k=3):
-    c = pyphi.direction.Direction.CAUSE
-    e = pyphi.direction.Direction.EFFECT
-    cause_purviews = set([mice.purview for mice in ces if mice.direction == c])
-    effect_purviews = set([mice.purview for mice in ces if mice.direction == e])
-
-    # the following two loops do the filtering, and are identical except the first does cause and the other effect
-    # If the same purview is specified by multiple mechinisms, we only keep the one with max phi
-    causes = []
-    for purview in cause_purviews:
-        mices = list(
-            filter(lambda mice: mice.direction == c and mice.purview == purview, ces,)
-        )
-        causes.append(mices[np.argmax([mice.phi for mice in mices])])
-
-    effects = []
-    for purview in effect_purviews:
-        mices = list(
-            filter(lambda mice: mice.direction == e and mice.purview == purview, ces,)
-        )
-        effects.append(mices[np.argmax([mice.phi for mice in mices])])
-
-    # remove any unlinked mice
-    causeeffect_mechanisms = set([cause.mechanism for cause in causes]).intersection(
-        set([effect.mechanism for effect in effects])
-    )
-    causeeffects = causes + effects
-    filtered_ces = [
-        mice for mice in causeeffects if mice.mechanism in causeeffect_mechanisms
     ]
-    return get_maximal_ces(
-        subsystem,
-        ces=pyphi.models.CauseEffectStructure(filtered_ces),
-        max_k=max_relations_k,
-    )
-
-
-def filter_ces_parallel(
-    subsystem, ces, compositional_state, max_relations_k=3, n_jobs=120
-):
-
-    # first separate the ces into mices and define the directions
-    c = pyphi.direction.Direction.CAUSE
-    e = pyphi.direction.Direction.EFFECT
-
-    # next we run through all the mices and append any mice that has a state corresponding to the compositional state
-    mices_with_correct_state = dict()  # compositional_state.copy()
-    for mice in ces:
-        if (
-            tuple(mice.specified_state[0])
-            == compositional_state[mice.direction][mice.purview]
-        ):
-            if not (mice.direction, mice.purview) in mices_with_correct_state.keys():
-                mices_with_correct_state[(mice.direction, mice.purview)] = [mice]
-            else:
-                mices_with_correct_state[(mice.direction, mice.purview)].append(mice)
-
-    all_cess = list(itertools.product(*mices_with_correct_state.values()))
-
-    max_ces = []
-    max_ces = Parallel(n_jobs=n_jobs, verbose=10, backend="multiprocessing")(
-        delayed(resolve_conflicts)(subsystem, ces) for ces in tqdm(all_cess)
-    )
-
-    return max(max_ces, key=lambda c: c["big phi"])
-
