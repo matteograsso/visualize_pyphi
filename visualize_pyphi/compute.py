@@ -10,7 +10,11 @@ from operator import attrgetter
 from joblib import Parallel, delayed
 
 
-def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[]):
+CAUSE = pyphi.direction.Direction(0)
+EFFECT = pyphi.direction.Direction(1)
+
+
+def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[], relations=[]):
     # Find the maximally irreducible CES for a given subsystem
     
     # unfold unfiltered, separated ces for the system
@@ -49,7 +53,7 @@ def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[]):
             filtered_relations,
             compositional_state,
         ) = compute_rels_and_ces_for_compositional_state(
-            system, compositional_state, ces, max_k
+            system, compositional_state, ces, max_k, relations
         )
         # Compute Big Phi
         phi, cut = get_big_phi(filtered_ces, filtered_relations, system.node_indices)
@@ -83,13 +87,32 @@ def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[]):
 
     return maximal
 
-def filter_ces(
-    subsystem, ces, compositional_state, max_relations_k=3, n_jobs=120
-):
 
-    # first separate the ces into mices and define the directions
-    c = pyphi.direction.Direction.CAUSE
-    e = pyphi.direction.Direction.EFFECT
+def compute_rels_and_ces_for_compositional_state(system, state, ces, max_k=3, relations=[]):
+
+    if type(state) is tuple:
+        state = compositional_state_from_system_state(state)
+        
+    # Filter the distinctions
+    filtered_ces = filter_ces_by_compositional_state(ces, state)
+    
+    # Filter the relations
+    if len(relations)>0:
+        filtered_relations = filter_relations(relations, filtered_ces)
+    else:
+        filtered_relations = compute_relations(system, filtered_ces, max_k=max_k)
+
+    return (
+        filtered_ces,
+        filtered_relations,
+        state,
+    )
+
+
+
+def filter_ces(
+    subsystem, ces, compositional_state, relations=[], max_relations_k=3, n_jobs=120
+):
 
     # next we run through all the mices and append any mice that has a state corresponding to the compositional state
     mices_with_correct_state = dict()  # compositional_state.copy()
@@ -108,7 +131,7 @@ def filter_ces(
     max_ces = []
     if len(all_cess)>n_jobs:
         max_ces = Parallel(n_jobs=n_jobs, verbose=10, backend="multiprocessing")(
-            delayed(resolve_conflicts)(subsystem, ces, max_relations_k) for ces in all_cess
+            delayed(resolve_conflicts)(subsystem, ces, max_relations_k) for ces in tqdm(all_cess)
         )
     else:
         max_ces = [resolve_conflicts(subsystem, ces, max_relations_k) for ces in tqdm(all_cess)]
@@ -116,7 +139,7 @@ def filter_ces(
     return max(max_ces, key=lambda c: c[0]["big phi"])
 
 
-def resolve_conflicts(subsystem, ces, max_relations_k=3):
+def resolve_conflicts(subsystem, ces, max_k=3, relations=[]):
 
     # the following two loops do the filtering, and are identical except the first does cause and the other effect
     # If the same purview is specified by multiple mechinisms, we only keep the one with max phi
@@ -134,7 +157,8 @@ def resolve_conflicts(subsystem, ces, max_relations_k=3):
     return get_maximal_ces(
         subsystem,
         ces=pyphi.models.CauseEffectStructure(filtered_ces),
-        max_k=max_relations_k,
+        max_k=max_k,
+        relations=relations
     )
 
 
@@ -592,40 +616,8 @@ def get_filtered_ces_and_rels(ces, relations, state, system=None):
     )
 
 
-CAUSE = pyphi.direction.Direction(0)
-EFFECT = pyphi.direction.Direction(1)
 
-
-def distinction_touched_old(mice, part1, part2, direction):
-    mechanism_cut = all(
-        [any([m in part for m in mice.mechanism]) for part in [part1, part2]]
-    )
-    purview_cut = all(
-        [any([p in part for p in mice.purview]) for part in [part1, part2]]
-    )
-    connection_cut = (
-        all([m in part1 for m in mice.mechanism])
-        and all([p in part2 for p in mice.purview])
-        and mice.direction == direction
-    )
-    return mechanism_cut or purview_cut or connection_cut
-
-
-def compute_rels_and_ces_for_compositional_state(system, state, ces, max_k=3):
-
-    if type(state) is tuple:
-        state = compositional_state_from_system_state(state)
-    filtered_ces = filter_ces_by_compositional_state(ces, state)
-    relations = compute_relations(system, filtered_ces, max_k=max_k)
-
-    return (
-        filtered_ces,
-        relations,
-        state,
-    )
-
-
-def get_all_ces(system, ces=None):
+def get_all_ces(system, ces=None, max_k=3, relations=[]):
 
     # unfold ces
     if ces == None:
@@ -651,7 +643,7 @@ def get_all_ces(system, ces=None):
             filtered_relations,
             compositional_state,
         ) = compute_rels_and_ces_for_compositional_state(
-            system, compositional_state, ces
+            system, compositional_state, ces, max_k, relations
         )
         phi, cut = get_big_phi(filtered_ces, filtered_relations, system.node_indices)
 
@@ -763,3 +755,19 @@ def context_relations(relations, distinctions):
             and not all([relatum in distinctions for relatum in relation.relata])
         )
     ]
+
+
+
+def distinction_touched_old(mice, part1, part2, direction):
+    mechanism_cut = all(
+        [any([m in part for m in mice.mechanism]) for part in [part1, part2]]
+    )
+    purview_cut = all(
+        [any([p in part for p in mice.purview]) for part in [part1, part2]]
+    )
+    connection_cut = (
+        all([m in part1 for m in mice.mechanism])
+        and all([p in part2 for p in mice.purview])
+        and mice.direction == direction
+    )
+    return mechanism_cut or purview_cut or connection_cut
