@@ -8,3 +8,17 @@ _CES.png
 .ipynb_checkpoints/Example_notebook-checkpoint.ipynb
 visualize_pyphi/.ipynb_checkpoints/**
 visualize_pyphi/__pycache__/**
+pickles/space_4_rels2_compressed.pkl
+pickles/space_4_rels3_compressed.pkl
+pickles/space_4_rels4_compressed.pkl
+pickles/space_4_rels5_compressed.pkl
+pickles/space_4_rels6_compressed.pkl
+pickles/space_4_rels7_compressed.pkl
+pickles/space_4_rels8_compressed.pkl
+pickles/space_4_rels9_compressed.pkl
+pickles/space_4_rels10_compressed.pkl
+pickles/space_4_rels11_compressed.pkl
+pickles/space_4_rels12_compressed.pkl
+pickles/space_4_rels13_compressed.pkl
+pickles/space_4_rels14_compressed.pkl
+pyphi.log
