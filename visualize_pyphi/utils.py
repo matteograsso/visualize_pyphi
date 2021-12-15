@@ -3,6 +3,8 @@ import string
 import itertools
 import pyphi
 from joblib import Parallel, delayed
+import pickle
+from tqdm.auto import tqdm
 
 
 def flatten(l, ltypes=(list, tuple)):
@@ -76,7 +78,7 @@ def compute_k_relations_chunk(chunk):
 
 
 def parallcompute_ks_relations(
-    subsystem, separated_ces, ks, n_jobs=-1, chunk_size=5000
+    subsystem, separated_ces, ks, n_jobs=-1, chunk_size=5000, verbose=5,
 ):
     all_purviews = separated_ces
     ks_relations = []
@@ -86,10 +88,29 @@ def parallcompute_ks_relations(
             for pair in itertools.combinations(all_purviews, k)
         ]
         chunks = chunk_iterable(relata, chunk_size)
-        k_relations = Parallel(n_jobs=n_jobs, verbose=10, backend="multiprocessing")(
-            delayed(compute_k_relations_chunk)(chunk) for chunk in tqdm_notebook(chunks)
+        k_relations = Parallel(n_jobs=n_jobs, verbose=verbose, backend="loky")(
+            delayed(compute_k_relations_chunk)(chunk) for chunk in tqdm(chunks)
         )
         k_relations_flat = list(itertools.chain.from_iterable(k_relations))
         ks_relations.extend(k_relations_flat)
 
     return ks_relations
+
+
+def pklthis(this, name):
+    with open(name, "wb") as f:
+        pickle.dump(this, f)
+
+
+def jsonthis(this, name):
+    with open(name, "wt") as f:
+        pyphi.jsonify.dump(this, f)
+
+
+def loadpkl(name):
+    with open(name, "rb") as f:
+        return pickle.load(f)
+
+
+# def compress_relations(ces, relations):
+#     [dict()]
