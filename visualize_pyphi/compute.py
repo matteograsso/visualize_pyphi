@@ -111,25 +111,35 @@ def compute_rels_and_ces_for_compositional_state(system, state, ces, max_k=3, re
 
 
 def filter_ces(
-    subsystem, ces, compositional_state, relations=[], max_relations_k=3, n_jobs=120
+    subsystem, ces, compositional_state, relations=[], max_relations_k=3, n_jobs=120, parallel=True
 ):
 
-    # next we run through all the mices and append any mice that has a state corresponding to the compositional state
-    mices_with_correct_state = dict()  # compositional_state.copy()
-    for mice in ces:
-        if (
-            tuple(mice.specified_state[0])
-            == compositional_state[mice.direction][mice.purview]
-        ):
-            if not (mice.direction, mice.purview) in mices_with_correct_state.keys():
-                mices_with_correct_state[(mice.direction, mice.purview)] = [mice]
+    if compositional_state==None:
+        purview_states = dict()  # compositional_state.copy()
+        for mice in ces:
+            if not (mice.direction, mice.purview) in purview_states.keys():
+                purview_states[(mice.direction, mice.purview)] = [mice]
             else:
-                mices_with_correct_state[(mice.direction, mice.purview)].append(mice)
+                purview_states[(mice.direction, mice.purview)].append(mice)
 
-    all_cess = list(itertools.product(*mices_with_correct_state.values()))
+        all_cess = list(itertools.product(*purview_states.values()))
+    else:
+        # next we run through all the mices and append any mice that has a state corresponding to the compositional state
+        mices_with_correct_state = dict()  # compositional_state.copy()
+        for mice in ces:
+            if (
+                tuple(mice.specified_state[0])
+                == compositional_state[mice.direction][mice.purview]
+            ):
+                if not (mice.direction, mice.purview) in mices_with_correct_state.keys():
+                    mices_with_correct_state[(mice.direction, mice.purview)] = [mice]
+                else:
+                    mices_with_correct_state[(mice.direction, mice.purview)].append(mice)
+
+        all_cess = list(itertools.product(*mices_with_correct_state.values()))
 
     max_ces = []
-    if len(all_cess)>n_jobs:
+    if parallel and len(all_cess)>n_jobs:
         max_ces = Parallel(n_jobs=n_jobs, verbose=10, backend="multiprocessing")(
             delayed(resolve_conflicts)(subsystem, ces, max_relations_k) for ces in tqdm(all_cess)
         )
