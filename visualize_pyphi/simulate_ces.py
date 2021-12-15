@@ -11,6 +11,7 @@ import string
 
 import random
 import imageio
+from tqdm.auto import tqdm
 
 # TODO: make sure all packages are installed in the environment
 

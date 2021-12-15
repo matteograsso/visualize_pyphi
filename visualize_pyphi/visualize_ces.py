@@ -195,8 +195,8 @@ def plot_ces(
     relations,
     network_name="",
     floor_width_scale=1.5,
-    floor_width_scales=[1.5, 2, 2, 1, 1],
-    floor_height_scale=[2, 2, 2, 1.5, 2],
+    floor_width_scales=[1.5, 2, 2.5, 2, 1],
+    floor_height_scale=[2, 2, 1.5, 1.25, 1],
     cause_effect_distance=0.2,
     base_height_scale=2.7,
     base_z_offset=0.2,
@@ -216,9 +216,9 @@ def plot_ces(
     transparent_edges=False,
     surface_size_range=(0.1, 0.99),
     surface_colorscale="Blues",
-    surface_opacity=0.1,
+    surface_opacity=0.6,
     axes_range=None,
-    eye_coordinates=(0.1, -0.4, 0.025),
+    eye_coordinates=(-0.1, -0.4, 0.025),
     hovermode="x",
     plot_dimensions=(2000, 1400),
     save_plot_to_html=True,
@@ -229,11 +229,14 @@ def plot_ces(
     show_mesh=True,
     show_edges=True,
     show_labels=True,
+    show_mechanism_labels=False,
+    show_purview_labels=False,
     colorcode_2_relations=True,
     show_legend=True,
     transparent_background=True,
     chain_width=3,
     fig=None,
+    matteo_edge_color=True,
 ):
 
     # Initialize figure
@@ -379,7 +382,7 @@ def plot_ces(
     ]
 
     labels_mechanisms_trace = go.Scatter3d(
-        visible=show_labels,
+        visible=(show_labels or show_mechanism_labels),
         x=x_mechanism,
         y=y_mechanism,
         z=z_mechanism,
@@ -486,7 +489,7 @@ def plot_ces(
 
     # Create labels for cause purviews
     labels_cause_purviews_trace = go.Scatter3d(
-        visible=show_labels,
+        visible=(show_labels or show_purview_labels),
         x=causes_x,
         y=causes_y,
         z=causes_z,
@@ -504,7 +507,7 @@ def plot_ces(
 
     # effects
     labels_effect_purviews_trace = go.Scatter3d(
-        visible=show_labels,
+        visible=(show_labels or show_purview_labels),
         x=effects_x,
         y=effects_y,
         z=effects_z,
@@ -615,13 +618,13 @@ def plot_ces(
                 total=len(two_relations),
             ):
                 relation_nodes = list(flatten(relation.mechanisms))
-                relation_color = get_edge_color(relation, colorcode_2_relations)
+                relation_color = get_edge_color(relation, colorcode_2_relations) if matteo_edge_color else 'black'
 
                 legend_mechanisms = []
 
                 # Make all 2-relations traces and legendgroup
                 edge_two_relation_trace = go.Scatter3d(
-                    visible=show_links,
+                    visible=show_edges,
                     legendgroup="All 2-Relations",
                     showlegend=True if r == 0 else False,
                     x=two_relations_coords[0][r],
