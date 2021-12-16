@@ -31,7 +31,7 @@ def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[], relation
         )
         for m in ces:
             m.node_labels = system.node_labels
-
+    ces = [m for m in ces if m.phi]
     # Find all compositional states, if they are not provided
     if len(compositional_states) == 0:
         compositional_states = get_all_compositional_states(ces)
