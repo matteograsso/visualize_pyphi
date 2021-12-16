@@ -72,19 +72,19 @@ def make_label(node_indices, node_labels=None, bold=False, state=False):
     if state:
         nl = []
         # capitalizing labels of mechs that are on
-        if not len(state)==len(node_labels):
+        if not len(state) == len(node_labels):
             for n, i in zip(node_labels, node_indices):
                 if state[i] == 0:
                     nl.append(n.lower() + "")
                 else:
                     nl.append(n.upper() + "")
         else:
-            for s,l in zip(state,node_labels):
+            for s, l in zip(state, node_labels):
                 if s == 0:
                     nl.append(l.lower() + "")
                 else:
                     nl.append(l.upper() + "")
-            
+
         node_labels = nl
 
         return "<i>" + "".join(node_labels) + "</i>"
@@ -221,6 +221,7 @@ def plot_ces(
     eye_coordinates=(-0.1, -0.4, 0.025),
     hovermode="x",
     plot_dimensions=(2000, 1400),
+    png_resolution=None,
     save_plot_to_html=True,
     save_plot_to_png=True,
     show_mechanism_base=True,
@@ -266,7 +267,9 @@ def plot_ces(
                 int(comb(N_units, k + 1)),
                 center=(0, 0),
                 angle=0,
-                z=k * floor_height_scale[k] if len(floor_height_scale)>0 else k*floor_height_scale,
+                z=k * floor_height_scale[k]
+                if len(floor_height_scale) > 0
+                else k * floor_height_scale,
                 scale=floor_width_scales[k]
                 if floor_width_scales
                 else floor_width_scale,
@@ -618,7 +621,11 @@ def plot_ces(
                 total=len(two_relations),
             ):
                 relation_nodes = list(flatten(relation.mechanisms))
-                relation_color = get_edge_color(relation, colorcode_2_relations) if matteo_edge_color else 'black'
+                relation_color = (
+                    get_edge_color(relation, colorcode_2_relations)
+                    if matteo_edge_color
+                    else "black"
+                )
 
                 legend_mechanisms = []
 
@@ -801,18 +808,22 @@ def plot_ces(
         plotly.io.write_html(fig, save_plot_to_html)
 
     if save_plot_to_png is True:
+        if not png_resolution:
+            png_resolution = plot_dimensions
         fig.write_image(
             f"{network_name}_CES.png",
-            width=plot_dimensions[0],
-            height=plot_dimensions[1],
+            width=png_resolution[0],
+            height=png_resolution[1],
             scale=1,
         )
 
     elif type(save_plot_to_png) == str:
+        if not png_resolution:
+            png_resolution = plot_dimensions
         fig.write_image(
             save_plot_to_png,
-            width=plot_dimensions[0],
-            height=plot_dimensions[1],
+            width=png_resolution[0],
+            height=png_resolution[1],
             scale=1,
             #           transparent=transparent_background,
         )
