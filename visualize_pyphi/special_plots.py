@@ -1,6 +1,7 @@
 from . import visualize_ces as viz
 from . import compute
 from pyphi.models import CauseEffectStructure
+from pyphi.models.subsystem import FlatCauseEffectStructure as sep
 import inspect
 
 # standard_kwargs inherits default values from plot_ces
@@ -202,31 +203,31 @@ def compound_distinction(
     relations,
     mechanism,
     figure_name,
-    partitions=None,
     common_kwargs=dict(),
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
 
-    mices = [mice for mice in ces if mice.mechanism==mechanism]
-    context_relations = [r for r in relations if any([relatum in mices for relatum in r.relata])]
-    context_distinctions = list(set([mice for relation in context_relations for mice in relation.relata]))
-
-    cess = [ces, context_distinctions, mices]
-    relations = [relations, context_relations, []]
+    elementary_distinction = compute.get_mechanism_subtext(ces,mechanism)
+    relations_among = compute.filter_relations(relations, elementary_distinction)
+    
+    cess = [ces, elementary_distinction, ces]
+    relations = [relations, relations_among, relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, show_labels=False,
+        network_name=figure_name, show_legend=False, 
     )
     default_common_kwargs.update(common_kwargs)
 
     default_uncommon_kwargs = [
         dict(
-            surface_colorscale="Blues",
-            surface_opacity=0.3,
+            surface_colorscale="Greys",
+            surface_opacity=0.1,
             show_links=False,
             show_edges=False,
             save_plot_to_png=False,
             save_plot_to_html=False,
+            show_mechanism_base=True,
+            show_labels=False,
         ),
         dict(
             surface_colorscale="Oranges",
@@ -234,18 +235,26 @@ def compound_distinction(
             show_chains=False,
             show_mechanism_base=False,
             matteo_edge_color=True,
-            show_links=False,
-            show_purview_labels=True,
+            show_links=True,
+            show_labels=True,
+            transparent_edges=True,
+            show_mesh=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+            link_width_range = (6, 10),
         ),
         dict(
-            surface_colorscale="Greys",
-            surface_opacity=0.01,
-            show_edges=False,
+            surface_colorscale="Oranges",
+            surface_opacity=0.0,
             show_chains=False,
             show_mechanism_base=False,
-            show_mechanism_labels=True,
+            matteo_edge_color=False,
+            show_links=False,
+            show_labels=False,
+            transparent_edges=True
         ),
     ]
+    
     default_uncommon_kwargs = [
         dict(**default_uncommon_kwarg, **uncommon_kwarg)
         for default_uncommon_kwarg, uncommon_kwarg in zip(
@@ -267,22 +276,23 @@ def compound_relation(
     mechanisms,
     figure_name,
     common_kwargs=dict(),
-    uncommon_kwargs=[dict(), dict(), dict()],
+    uncommon_kwargs=[dict(), dict(), dict(), dict()],
 ):
 
-    all_mices = [[mice for mice in ces if mice.mechanism==mechanism] for mechanism in mechanisms]
+    elementary_distinction_1 = compute.get_mechanism_subtext(ces,mechanisms[0])
+    relations_among_1 = compute.filter_relations(relations, elementary_distinction_1)
     
-    all_context_relations = [[r for r in relations if any([relatum in mices for relatum in r.relata])] for mices in all_mices]
-    all_context_distinctions = [list(set([mice for relation in context_relations for mice in relation.relata])) for context_relations in all_context_relations]
-
-    # Getting the relations that have relata in exactly one of the contexts
-    context_biding_relations = [r for r in relations 
-                                if all([any([relatum in context_distinctions for relatum in r.relata]) for context_distinctions in all_context_distinctions]) 
-                                and all([sum([relatum in context_distinctions for relatum in r.relata])==1 for context_distinctions in all_context_distinctions])]
-    required_mices = list(set([mice for relation in context_biding_relations for mice in relation.relata]))
+    elementary_distinction_2 = compute.get_mechanism_subtext(ces,mechanisms[1])
+    relations_among_2 = compute.filter_relations(relations, elementary_distinction_2)
     
-    cess = [ces, [mice for mices in all_mices for mice in mices], required_mices]
-    relations = [relations, [], context_biding_relations]
+    elementary_distinctions = CauseEffectStructure([mice for mice in elementary_distinction_1] + [mice for mice in elementary_distinction_2])
+    relations_between = [r for r in compute.filter_relations(relations, elementary_distinctions) if r not in relations_among_1+relations_among_2]
+    
+    print(relations_among_1)
+    print(relations_among_2)
+    
+    cess = [ces, elementary_distinction_1, elementary_distinction_2, elementary_distinctions]
+    relations = [relations, relations_among_1, relations_among_2, relations_between]
 
     default_common_kwargs = dict(
         network_name=figure_name, show_legend=False, show_labels=False,
@@ -291,7 +301,7 @@ def compound_relation(
 
     default_uncommon_kwargs = [
         dict(
-            surface_colorscale="Blues",
+            surface_colorscale="Greys",
             surface_opacity=0.1,
             show_links=False,
             show_edges=False,
@@ -299,23 +309,40 @@ def compound_relation(
             save_plot_to_html=False,
         ),
         dict(
-            surface_colorscale="Greys",
-            surface_opacity=0.01,
-            show_edges=False,
+            surface_colorscale="Oranges",
+            surface_opacity=0.5,
+            show_edges=True,
             show_chains=False,
             show_mechanism_base=False,
             show_mechanism_labels=True,
+            show_purview_labels=True,
             show_links=True,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+            matteo_edge_color=False,
         ),
         dict(
-            surface_colorscale="Purples",
+            surface_colorscale="Oranges",
+            surface_opacity=0.5,
+            show_edges=True,
+            show_chains=False,
+            show_mechanism_base=False,
+            show_mechanism_labels=True,
+            show_purview_labels=True,
+            show_links=True,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+            matteo_edge_color=False,
+        ),
+        dict(
+            surface_colorscale="Blues",
             surface_opacity=0.9,
             show_chains=False,
             show_mechanism_base=False,
-            matteo_edge_color=False,
+            matteo_edge_color=True,
             show_links=False,
             show_edges=True,
-            show_purview_labels=True,
+            edge_size_range = (6, 10),
         ),
     ]
     default_uncommon_kwargs = [
@@ -332,7 +359,82 @@ def compound_relation(
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
     
     
-def mechanism_phi_fold(
+
+def substructure(
+    system,
+    ces,
+    relations,
+    mechanisms,
+    figure_name,
+    common_kwargs=dict(),
+    uncommon_kwargs=[dict(), dict(), dict()],
+):
+
+    sub_ces = [mice for mice in ces if mice.mechanism in mechanisms]#elementary_distinction = compute.get_mechanism_subtext(ces,mechanism)
+    relations_among = compute.filter_relations(relations, sub_ces)
+    
+    cess = [ces, sub_ces, ces]
+    relations = [relations, relations_among, relations]
+
+    default_common_kwargs = dict(
+        network_name=figure_name, show_legend=False, 
+    )
+    default_common_kwargs.update(common_kwargs)
+
+    default_uncommon_kwargs = [
+        dict(
+            surface_colorscale="Greys",
+            surface_opacity=0.1,
+            show_links=False,
+            show_edges=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+            show_mechanism_base=True,
+            show_labels=False,
+        ),
+        dict(
+            surface_colorscale="Blues",
+            surface_opacity=0.9,
+            show_chains=False,
+            show_mechanism_base=False,
+            matteo_edge_color=True,
+            show_links=True,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+            link_width_range = (6, 10),
+            edge_size_range = (6, 10),
+            show_purview_labels = False,
+            show_mechanism_labels = True,
+            show_labels=False,
+        ),
+        dict(
+            surface_colorscale="Oranges",
+            surface_opacity=0.0,
+            show_chains=False,
+            show_mechanism_base=False,
+            matteo_edge_color=False,
+            show_links=False,
+            show_labels=False,
+            transparent_edges=True
+        ),
+    ]
+    
+    default_uncommon_kwargs = [
+        dict(**default_uncommon_kwarg, **uncommon_kwarg)
+        for default_uncommon_kwarg, uncommon_kwarg in zip(
+            default_uncommon_kwargs, uncommon_kwargs
+        )
+    ]
+
+    nonstandard_kwargs = [
+        dict(**default_common_kwargs, **kwargs) for kwargs in default_uncommon_kwargs
+    ]
+
+    overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
+
+    
+
+def mechanism_context(
     system,
     ces,
     relations,
@@ -341,49 +443,55 @@ def mechanism_phi_fold(
     common_kwargs=dict(),
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
+
+    elementary_distinction = compute.get_mechanism_context(ces,mechanism)
+    relations_among = compute.filter_relations(relations, elementary_distinction)
     
-    mices_specified_by_units = [mice for unit in mechanism for mice in ces if unit in mice.mechanism]
-    relations_specified_by_units = [r for r in relations if any([relatum in mices_specified_by_units for relatum in r.relata])]
-    
-    required_distinctions = list(set([mice for relation in relations_specified_by_units for mice in relation.relata]))
-    
-    cess = [ces, required_distinctions, mices_specified_by_units]
-    relations = [relations, [], relations_specified_by_units]
+    cess = [ces, elementary_distinction, ces]
+    relations = [relations, relations_among, relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, show_labels=False,
+        network_name=figure_name, show_legend=False, 
     )
     default_common_kwargs.update(common_kwargs)
 
     default_uncommon_kwargs = [
         dict(
-            surface_colorscale="Blues",
+            surface_colorscale="Greys",
             surface_opacity=0.1,
             show_links=False,
             show_edges=False,
             save_plot_to_png=False,
             save_plot_to_html=False,
+            show_mechanism_base=True,
+            show_labels=False,
         ),
         dict(
-            surface_colorscale="Greys",
-            surface_opacity=0.01,
-            show_edges=False,
+            surface_colorscale="Oranges",
+            surface_opacity=0.9,
             show_chains=False,
             show_mechanism_base=False,
-            show_mechanism_labels=True,
+            matteo_edge_color=True,
             show_links=True,
+            show_labels=True,
+            transparent_edges=True,
+            show_mesh=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+            link_width_range = (6, 10),
         ),
         dict(
-            surface_colorscale="Blues",
-            surface_opacity=0.9,
+            surface_colorscale="Oranges",
+            surface_opacity=0.0,
             show_chains=False,
             show_mechanism_base=False,
             matteo_edge_color=False,
             show_links=False,
-            show_edges=True,
-            show_purview_labels=True,
+            show_labels=False,
+            transparent_edges=True
         ),
     ]
+    
     default_uncommon_kwargs = [
         dict(**default_uncommon_kwarg, **uncommon_kwarg)
         for default_uncommon_kwarg, uncommon_kwarg in zip(
@@ -396,7 +504,149 @@ def mechanism_phi_fold(
     ]
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
+
     
+def purview_context(
+    system,
+    ces,
+    relations,
+    purview,
+    figure_name,
+    common_kwargs=dict(),
+    uncommon_kwargs=[dict(), dict(), dict()],
+):
+
+    elementary_distinction = compute.get_purview_context(ces,purview)
+    relations_among = compute.filter_relations(relations, elementary_distinction)
+    
+    cess = [ces, elementary_distinction, ces]
+    relations = [relations, relations_among, relations]
+
+    default_common_kwargs = dict(
+        network_name=figure_name, show_legend=False, 
+    )
+    default_common_kwargs.update(common_kwargs)
+
+    default_uncommon_kwargs = [
+        dict(
+            surface_colorscale="Greys",
+            surface_opacity=0.1,
+            show_links=False,
+            show_edges=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+            show_mechanism_base=True,
+            show_labels=False,
+        ),
+        dict(
+            surface_colorscale="Oranges",
+            surface_opacity=0.9,
+            show_chains=False,
+            show_mechanism_base=False,
+            matteo_edge_color=True,
+            show_links=True,
+            show_labels=True,
+            transparent_edges=True,
+            show_mesh=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+            link_width_range = (6, 10),
+        ),
+        dict(
+            surface_colorscale="Oranges",
+            surface_opacity=0.0,
+            show_chains=False,
+            show_mechanism_base=False,
+            matteo_edge_color=False,
+            show_links=False,
+            show_labels=False,
+            transparent_edges=True
+        ),
+    ]
+    
+    default_uncommon_kwargs = [
+        dict(**default_uncommon_kwarg, **uncommon_kwarg)
+        for default_uncommon_kwarg, uncommon_kwarg in zip(
+            default_uncommon_kwargs, uncommon_kwargs
+        )
+    ]
+
+    nonstandard_kwargs = [
+        dict(**default_common_kwargs, **kwargs) for kwargs in default_uncommon_kwargs
+    ]
+
+    overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
+
+    
+
+def unit_phi_fold(
+    system,
+    ces,
+    relations,
+    units,
+    figure_name,
+    common_kwargs=dict(),
+    uncommon_kwargs=[dict(), dict(), dict()],
+):
+    elementary_distinction = compute.get_unit_context(ces,units)
+    relations_among = compute.filter_relations(relations, elementary_distinction)
+    
+    cess = [ces, elementary_distinction, ces]
+    relations = [relations, relations_among, relations]
+
+    default_common_kwargs = dict(
+        network_name=figure_name, show_legend=False, 
+    )
+    default_common_kwargs.update(common_kwargs)
+
+    default_uncommon_kwargs = [
+        dict(
+            surface_colorscale="Greys",
+            surface_opacity=0.1,
+            show_links=False,
+            show_edges=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+            show_mechanism_base=True,
+            show_labels=False,
+        ),
+        dict(
+            surface_colorscale="Blues",
+            surface_opacity=0.9,
+            show_chains=False,
+            show_mechanism_base=False,
+            matteo_edge_color=True,
+            show_links=True,
+            show_labels=True,
+            show_mesh=True,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+            link_width_range = (6, 10),
+        ),
+        dict(
+            surface_colorscale="Oranges",
+            surface_opacity=0.0,
+            show_chains=False,
+            show_mechanism_base=False,
+            matteo_edge_color=False,
+            show_links=False,
+            show_labels=False,
+            transparent_edges=True
+        ),
+    ]
+    
+    default_uncommon_kwargs = [
+        dict(**default_uncommon_kwarg, **uncommon_kwarg)
+        for default_uncommon_kwarg, uncommon_kwarg in zip(
+            default_uncommon_kwargs, uncommon_kwargs
+        )
+    ]
+
+    nonstandard_kwargs = [
+        dict(**default_common_kwargs, **kwargs) for kwargs in default_uncommon_kwargs
+    ]
+
+    overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
 
 def purview_phi_fold(
     system,

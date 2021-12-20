@@ -201,7 +201,7 @@ def plot_ces(
     base_height_scale=2.7,
     base_z_offset=0.2,
     base_width_scale=0.8,
-    base_opacity=0.9,
+    base_opacity=0.90,
     base_intensity=1.0,
     base_color="white",
     user_mechanism_coordinates=None,
@@ -218,7 +218,7 @@ def plot_ces(
     surface_colorscale="Blues",
     surface_opacity=0.6,
     axes_range=None,
-    eye_coordinates=(-0.1, -0.4, 0.025),
+    eye_coordinates=(110, 2, 0.5),
     hovermode="x",
     plot_dimensions=(2000, 1400),
     png_resolution=None,
@@ -542,7 +542,7 @@ def plot_ces(
             mode="lines",
             name="Links",
             line_width=links_widths[i],
-            line_color=["red"] if mice.direction == CAUSE else ["green"],
+            line_color=["orange"], #["red"] if mice.direction == CAUSE else ["green"],
             hoverinfo="skip",
         )
         links_counter += 1
@@ -774,14 +774,21 @@ def plot_ces(
         )
         for dimension in range(3)
     ]
-
+    
+    # convert eye_coordinates to cartesian
+    # eye_coordinates is given in 3d polar coordinates: 
+    # (horizontal angle from x, vertical angle from xy-plane, distance) in degrees
+    x_eye = eye_coordinates[2] * np.sin((-eye_coordinates[1]+90)*2*np.pi/360) * np.cos(-eye_coordinates[0]*2*np.pi/360)
+    y_eye = eye_coordinates[2] * np.sin((-eye_coordinates[1]+90)*2*np.pi/360) * np.sin(-eye_coordinates[0]*2*np.pi/360)
+    z_eye = eye_coordinates[2] * np.cos((-eye_coordinates[1]+90)*2*np.pi/360)
+    
     layout = go.Layout(
         showlegend=show_legend,
         scene_xaxis=axes[0],
         scene_yaxis=axes[1],
         scene_zaxis=axes[2],
         scene_camera=dict(
-            eye=dict(x=eye_coordinates[0], y=eye_coordinates[1], z=eye_coordinates[2])
+            eye=dict(x=x_eye, y=y_eye, z=z_eye)
         ),
         hovermode=hovermode,
         title="",
@@ -803,7 +810,7 @@ def plot_ces(
     fig.layout = layout
 
     if save_plot_to_html is True:
-        plotly.io.write_html(fig, f"{network_name}_CES.html")
+        plotly.io.write_html(fig, f"{network_name}.html")
     elif type(save_plot_to_html) == str:
         plotly.io.write_html(fig, save_plot_to_html)
 
@@ -811,7 +818,7 @@ def plot_ces(
         if not png_resolution:
             png_resolution = plot_dimensions
         fig.write_image(
-            f"{network_name}_CES.png",
+            f"{network_name}.png",
             width=png_resolution[0],
             height=png_resolution[1],
             scale=1,
