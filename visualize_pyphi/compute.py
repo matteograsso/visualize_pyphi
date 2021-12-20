@@ -126,9 +126,11 @@ def filter_ces(
     max_relations_k=3,
     n_jobs=120,
     parallel=True,
-    batch_size=10,
+    verbose=5,
+    batch_size=1000,
 ):
 
+    print(f'batch size = {batch_size}')
     if compositional_state == None:
         purview_states = dict()  # compositional_state.copy()
         for mice in ces:
@@ -161,7 +163,7 @@ def filter_ces(
     max_ces = []
     if parallel and len(all_cess) > 20:
         max_ces = Parallel(
-            n_jobs=n_jobs, verbose=10, backend="loky", batch_size=batch_size
+            n_jobs=n_jobs, verbose=verbose, backend="loky", batch_size=batch_size
         )(
             delayed(resolve_conflicts)(subsystem, ces, max_relations_k)
             for ces in tqdm(all_cess)
@@ -312,40 +314,40 @@ def get_big_phi(ces, relations, indices, partitions=None):
 def compute_relations(subsystem, ces, max_k=3, num_relations=False):
     # Compute a number of relations up to order "max_k"
 
-    # relations = []
+    relations = []
     # Loop through every order relation between 2 and max_k
-    # for k in range(2, max_k + 1):
-    #     # find all the relata
-    #     relata = [
-    #         rels.Relata(subsystem, mices)
-    #         for mices in itertools.combinations(ces, k)
-    #         if all([mice.phi > 0 for mice in mices])
-    #     ]
+    for k in range(2, max_k + 1):
+        # find all the relata
+        relata = [
+            rels.Relata(subsystem, mices)
+            for mices in itertools.combinations(ces, k)
+            if all([mice.phi > 0 for mice in mices])
+        ]
 
-    #     # Pick a random sample of the relata, if only some of them are to be checked for irreducibility
-    #     if num_relations:
-    #         relata = random.sample(relata, num_relations)
+        # Pick a random sample of the relata, if only some of them are to be checked for irreducibility
+        if num_relations:
+            relata = random.sample(relata, num_relations)
 
-    #     # Compute the relations for all the relata
-    #     k_relations = [
-    #         rels.relation(relatum)
-    #         for relatum in (tqdm(relata) if len(relata) > 5000 else relata)
-    #     ]
+        # Compute the relations for all the relata
+        k_relations = [
+            rels.relation(relatum)
+            for relatum in (tqdm(relata) if len(relata) > 5000 else relata)
+        ]
 
-    #     # remove any reducible relations
-    #     k_relations = list(filter(lambda r: r.phi > 0, k_relations))
-    #     relations.extend(k_relations)
-    ces = [m for m in ces if m.phi]
-    relations = list(
-        pyphi.relations.relations(
-            subsystem,
-            ces,
-            min_order=2,
-            max_order=max_k,
-            parallel=True,
-            # parallel_kwargs=dict(n_jobs=120, batch_size=10000, verbose=0),
-        )
-    )
+        # remove any reducible relations
+        k_relations = list(filter(lambda r: r.phi > 0, k_relations))
+        relations.extend(k_relations)
+    # ces = [m for m in ces if m.phi]
+    # relations = list(
+    #     pyphi.relations.relations(
+    #         subsystem,
+    #         ces,
+    #         min_order=2,
+    #         max_order=max_k,
+    #         parallel=True,
+    #         # parallel_kwargs=dict(n_jobs=120, batch_size=10000, verbose=0),
+    #     )
+    # )
 
     return relations
 
