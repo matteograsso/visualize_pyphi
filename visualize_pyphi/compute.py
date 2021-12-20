@@ -2,6 +2,7 @@ import pyphi
 import itertools
 
 from pyphi import relations as rels
+from pyphi.models.subsystem import FlatCauseEffectStructure as sep
 from itertools import product
 import numpy as np
 from tqdm.auto import tqdm
@@ -157,7 +158,7 @@ def filter_ces(
         all_cess = list(itertools.product(*mices_with_correct_state.values()))
 
     max_ces = []
-    if parallel and len(all_cess) > n_jobs:
+    if parallel and len(all_cess) > 20:
         max_ces = Parallel(n_jobs=n_jobs, verbose=10, backend="multiprocessing")(
             delayed(resolve_conflicts)(subsystem, ces, max_relations_k)
             for ces in tqdm(all_cess)
@@ -332,14 +333,14 @@ def compute_relations(subsystem, ces, max_k=3, num_relations=False):
     #     k_relations = list(filter(lambda r: r.phi > 0, k_relations))
     #     relations.extend(k_relations)
     ces = [m for m in ces if m.phi]
-    relations = pyphi.relations.relations(
+    relations = list(pyphi.relations.relations(
         subsystem,
         ces,
         min_order=2,
         max_order=max_k,
         parallel=True,
         parallel_kwargs=dict(n_jobs=120, batch_size=10000, verbose=0),
-    )
+    ))
 
     return relations
 
@@ -807,3 +808,181 @@ def distinction_touched_old(mice, part1, part2, direction):
         and mice.direction == direction
     )
     return mechanism_cut or purview_cut or connection_cut
+
+
+
+
+
+
+
+### PHI FOLD CODE
+def get_node_ixs(ces):
+    return tuple(set([u for mice in ces for u in mice.mechanism] + [u for mice in ces for u in mice.purview]))
+
+def get_mechanism_subtext(ces, mechanism):
+    mechanisms = list(pyphi.utils.powerset(mechanism))
+    return pyphi.models.CauseEffectStructure(
+        [mice for mice in ces if mice.mechanism in mechanisms]
+    )
+
+def get_mechanism_supertext(ces, mechanism):
+    node_indices = get_node_ixs(ces)
+    mechanisms = [ixs for ixs in pyphi.utils.powerset(node_indices) if all([ix in ixs for ix in mechanism])]
+    return pyphi.models.CauseEffectStructure(
+        [mice for mice in ces if mice.mechanism in mechanisms]
+    )
+
+def get_mechanism_paratext(ces, mechanism):
+    node_indices = get_node_ixs(ces)
+    mechanisms = [ixs for ixs in pyphi.utils.powerset(node_indices) if any([ix in ixs for ix in mechanism]) and not all([ix in ixs for ix in mechanism])]
+    return pyphi.models.CauseEffectStructure(
+        [mice for mice in ces if mice.mechanism in mechanisms]
+    )
+
+def get_mechanism_context(ces, mechanism):
+    return pyphi.models.CauseEffectStructure(
+        set(
+            [mice for mice in get_mechanism_subtext(ces, mechanism)]+
+            [mice for mice in get_mechanism_supertext(ces, mechanism)]+
+            [mice for mice in get_mechanism_paratext(ces, mechanism)]
+        )
+    )
+
+def get_purview_subtext(ces, purview):
+    purviews = list(pyphi.utils.powerset(purview))
+    return pyphi.models.CauseEffectStructure(
+        [mice for mice in ces if mice.purview in purviews]
+    )
+
+def get_purview_supertext(ces, purview):
+    node_indices = get_node_ixs(ces)
+    purviews = [ixs for ixs in pyphi.utils.powerset(node_indices) if all([ix in purview for ix in ixs])]
+    return pyphi.models.CauseEffectStructure(
+        [mice for mice in ces if mice.purview in purviews]
+    )
+
+def get_purview_paratext(ces, purview):
+    node_indices = get_node_ixs(ces)
+    purviews = [ixs for ixs in pyphi.utils.powerset(node_indices) if any([ix in purview for ix in ixs]) and not all([ix in purview for ix in ixs])]
+    return pyphi.models.CauseEffectStructure(
+        [mice for mice in ces if mice.purview in purviews]
+    )
+
+def get_purview_context(ces, purview):
+    return pyphi.models.CauseEffectStructure(
+        set(
+            [mice for mice in get_purview_subtext(ces, purview)]+
+            [mice for mice in get_purview_supertext(ces, purview)]+
+            [mice for mice in get_purview_paratext(ces, purview)]
+        )
+    )
+
+def get_unit_subtext(ces, units):
+    return pyphi.models.CauseEffectStructure(
+        set(
+            [mice for mice in get_mechanism_subtext(ces, units)]+
+            [mice for mice in get_purview_subtext(ces, units)]
+        )
+    )
+
+def get_unit_supertext(ces, units):
+    return pyphi.models.CauseEffectStructure(
+        set(
+            [mice for mice in get_mechanism_supertext(ces, units)]+
+            [mice for mice in get_purview_supertext(ces, units)]
+        )
+    )
+
+def get_unit_paratext(ces, units):
+    return pyphi.models.CauseEffectStructure(
+        set(
+            [mice for mice in get_mechanism_paratext(ces, units)]+
+            [mice for mice in get_purview_paratext(ces, units)]
+        )
+    )
+
+def get_unit_context(ces, units):
+    return pyphi.models.CauseEffectStructure(
+        set(
+            [mice for mice in get_mechanism_context(ces, units)]+
+            [mice for mice in get_purview_context(ces, units)]
+        )
+    )
+
+
+
+def get_linked_ces(ces, subsystem):
+    mechanisms = set([mice.mechanism for mice in ces])
+    causes = [
+        mice
+        for mechanism in mechanisms
+        for mice in ces
+        if mice.mechanism == mechanism and mice.direction == CAUSE
+    ]
+    effects = [
+        mice
+        for mechanism in mechanisms
+        for mice in ces
+        if mice.mechanism == mechanism and mice.direction == EFFECT
+    ]
+
+    if not len(causes) == len(effects):
+        print("Mismatching causes and effects! returning separated CES")
+        return ces
+
+    return pyphi.models.subsystem.CauseEffectStructure(
+        [
+            pyphi.models.mechanism.Concept(cause.mechanism, cause, effect, subsystem)
+            for cause, effect in zip(causes, effects)
+        ]
+    )
+
+
+def get_Phi_R(subset_distinctions, subset_relations):
+    
+    if hasattr(subset_distinctions[0], 'direction'):
+        print('subset_distinctions CES must be concept style. Try passing to compute.get_linked_ces(ces, system) first!')
+        return (0,((),()))
+    
+    partitions = [
+        part
+        for part in pyphi.partition.bipartition(range(len(subset_distinctions)))
+        if all([len(p) > 0 for p in part])
+    ]
+
+    Phi_R = np.inf
+    MIP = ((),())
+    for partition in partitions:
+        structure_0 = pyphi.models.subsystem.CauseEffectStructure([subset_distinctions[i] for i in partition[0]])
+        structure_1 = pyphi.models.subsystem.CauseEffectStructure([subset_distinctions[i] for i in partition[1]])
+
+        relations_0 = filter_relations(subset_relations,sep(structure_0))
+        relations_1 = filter_relations(subset_relations,sep(structure_1))
+
+        between_relations = [r for r in subset_relations if r not in relations_0+relations_1]
+
+        lost_phi = sum([r.phi for r in between_relations])
+
+        if lost_phi<Phi_R:
+            Phi_R = lost_phi
+            MIP = ([concept.mechanism for concept in structure_0], [concept.mechanism for concept in structure_1])
+            
+    return (Phi_R, MIP)
+
+def get_all_Phi_R(linked_ces, relations, system):
+    if hasattr(linked_ces[0], "direction"):
+        print(
+            "subset_distinctions CES must be concept style. Try passing to compute.get_linked_ces(ces, system) first!"
+        )
+        return
+
+    substructures = []
+    for subset in tqdm(list(pyphi.utils.powerset(linked_ces, system,min_size=2))):
+        linked = CES(subset)
+        separated = sep(linked)
+        subset_relations = compute.filter_relations(relations, separated)
+        Phi_R, MIP = get_Phi_R(linked, subset_relations)
+
+        substructures.append([Phi_R, MIP, separated])
+        
+    return substructures
