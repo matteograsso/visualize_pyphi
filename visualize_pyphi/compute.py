@@ -9,10 +9,53 @@ from tqdm.auto import tqdm
 import random
 from operator import attrgetter
 from joblib import Parallel, delayed
+import toolz
 
 
 CAUSE = pyphi.direction.Direction(0)
 EFFECT = pyphi.direction.Direction(1)
+
+
+def specified_elements(ces, direction):
+    """Return elements specified by at least one purview.
+
+    Args:
+        ces (pyphi.models.subsystem.FlatCauseEffectStructure): The distinctions to check.
+
+    Returns:
+        set: The elements.
+    """
+    return set(
+        list(
+            toolz.concat(
+                [
+                    distinction.purview
+                    for distinction in ces
+                    if distinction.direction == direction
+                ]
+            )
+        )
+    )
+
+
+def is_trivially_reducible(subsystem, ces):
+    """Return whether a system is trivially reducible.
+
+    Checks that all elements are specified by a purview in both directions.
+
+    Args:
+        subsystem (pyphi.subsystem.Subsystem): The subsystem of interest.
+        ces (pyphi.models.subsystem.FlatCauseEffectStructure): The distinctions
+            to check for reducibility.
+
+    Returns:
+        bool: True if the subsystem is trivially reducible, False otherwise
+    """
+    return any(
+        element not in specified_elements(ces, CAUSE)
+        or element not in specified_elements(ces, EFFECT)
+        for element in subsystem.node_indices
+    )
 
 
 def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[], relations=[]):
@@ -33,6 +76,7 @@ def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[], relation
         for m in ces:
             m.node_labels = system.node_labels
     ces = [m for m in ces if m.phi]
+
     # Find all compositional states, if they are not provided
     if len(compositional_states) == 0:
         compositional_states = get_all_compositional_states(ces)
@@ -45,7 +89,7 @@ def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[], relation
         compositional_states
         if len(compositional_states) < 2
         else tqdm(
-            compositional_states, desc="Computing Big Phi for all compositional states"
+            compositional_states, desc="Computing Big Phi for all compositional states",
         )
     ):
         # Filter the CES and relations
@@ -129,51 +173,57 @@ def filter_ces(
     verbose=5,
     batch_size=1000,
 ):
+    # Check for trivial reducibility
+    if is_trivially_reducible(subsystem, ces):
+        print("Subsystem is trivially reducible!")
 
-    print(f'batch size = {batch_size}')
-    if compositional_state == None:
-        purview_states = dict()  # compositional_state.copy()
-        for mice in ces:
-            if not (mice.direction, mice.purview) in purview_states.keys():
-                purview_states[(mice.direction, mice.purview)] = [mice]
-            else:
-                purview_states[(mice.direction, mice.purview)].append(mice)
-
-        all_cess = list(itertools.product(*purview_states.values()))
     else:
-        # next we run through all the mices and append any mice that has a state corresponding to the compositional state
-        mices_with_correct_state = dict()  # compositional_state.copy()
-        for mice in ces:
-            if (
-                tuple(mice.specified_state[0])
-                == compositional_state[mice.direction][mice.purview]
-            ):
-                if (
-                    not (mice.direction, mice.purview)
-                    in mices_with_correct_state.keys()
-                ):
-                    mices_with_correct_state[(mice.direction, mice.purview)] = [mice]
+        if compositional_state == None:
+            purview_states = dict()  # compositional_state.copy()
+            for mice in ces:
+                if not (mice.direction, mice.purview) in purview_states.keys():
+                    purview_states[(mice.direction, mice.purview)] = [mice]
                 else:
-                    mices_with_correct_state[(mice.direction, mice.purview)].append(
-                        mice
-                    )
+                    purview_states[(mice.direction, mice.purview)].append(mice)
 
-        all_cess = list(itertools.product(*mices_with_correct_state.values()))
+            all_cess = list(itertools.product(*purview_states.values()))
+        else:
+            # next we run through all the mices and append any mice that has a state corresponding to the compositional state
+            mices_with_correct_state = dict()  # compositional_state.copy()
+            for mice in ces:
+                if (
+                    tuple(mice.specified_state[0])
+                    == compositional_state[mice.direction][mice.purview]
+                ):
+                    if (
+                        not (mice.direction, mice.purview)
+                        in mices_with_correct_state.keys()
+                    ):
+                        mices_with_correct_state[(mice.direction, mice.purview)] = [
+                            mice
+                        ]
+                    else:
+                        mices_with_correct_state[(mice.direction, mice.purview)].append(
+                            mice
+                        )
 
-    max_ces = []
-    if parallel and len(all_cess) > 20:
-        max_ces = Parallel(
-            n_jobs=n_jobs, verbose=verbose, backend="loky", batch_size=batch_size
-        )(
-            delayed(resolve_conflicts)(subsystem, ces, max_relations_k)
-            for ces in tqdm(all_cess)
-        )
-    else:
-        max_ces = [
-            resolve_conflicts(subsystem, ces, max_relations_k) for ces in tqdm(all_cess)
-        ]
+            all_cess = list(itertools.product(*mices_with_correct_state.values()))
 
-    return max(max_ces, key=lambda c: c[0]["big phi"])
+        max_ces = []
+        if parallel and len(all_cess) > 20:
+            max_ces = Parallel(
+                n_jobs=n_jobs, verbose=verbose, backend="loky", batch_size=batch_size
+            )(
+                delayed(resolve_conflicts)(subsystem, ces, max_relations_k)
+                for ces in tqdm(all_cess)
+            )
+        else:
+            max_ces = [
+                resolve_conflicts(subsystem, ces, max_relations_k)
+                for ces in tqdm(all_cess)
+            ]
+
+        return max(max_ces, key=lambda c: c[0]["big phi"])
 
 
 def resolve_conflicts(subsystem, ces, max_k=3, relations=[]):
