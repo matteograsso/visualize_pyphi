@@ -9,7 +9,6 @@ from tqdm.auto import tqdm
 import random
 from operator import attrgetter
 from joblib import Parallel, delayed
-import toolz
 
 
 CAUSE = pyphi.direction.Direction(0)
@@ -26,15 +25,13 @@ def specified_elements(ces, direction):
         set: The elements.
     """
     return set(
-        list(
-            toolz.concat(
                 [
-                    distinction.purview
+                    u
                     for distinction in ces
-                    if distinction.direction == direction
+                    for u in distinction.purview
+                    if (distinction.direction == direction
+                    and not (len(distinction.mechanism) == 1 and distinction.mechanism == distinction.purview))
                 ]
-            )
-        )
     )
 
 
