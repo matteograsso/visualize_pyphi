@@ -100,8 +100,15 @@ def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[], relation
         ) = compute_rels_and_ces_for_compositional_state(
             system, compositional_state, ces, max_k, relations
         )
-        # Compute Big Phi
-        phi, cut = get_big_phi(filtered_ces, filtered_relations, system.node_indices)
+
+        if not filtered_ces:
+            phi = 0
+            cut = ()
+        else:
+            # Compute Big Phi
+            phi, cut = get_big_phi(
+                system, filtered_ces, filtered_relations, system.node_indices
+            )
 
         # Save values for highest BigPhi So far (or append if a tie)
         if phi > big_phi:
@@ -149,17 +156,21 @@ def compute_rels_and_ces_for_compositional_state(
     # Filter the distinctions
     filtered_ces = filter_ces_by_compositional_state(ces, state)
 
-    # Filter the relations
-    if len(relations) > 0:
-        filtered_relations = filter_relations(relations, filtered_ces)
-    else:
-        filtered_relations = compute_relations(system, filtered_ces, max_k=max_k)
+    if is_trivially_reducible(system, filtered_ces):
+        return ((), (), ())
 
-    return (
-        filtered_ces,
-        filtered_relations,
-        state,
-    )
+    else:
+        # Filter the relations
+        if len(relations) > 0:
+            filtered_relations = filter_relations(relations, filtered_ces)
+        else:
+            filtered_relations = compute_relations(system, filtered_ces, max_k=max_k)
+
+        return (
+            filtered_ces,
+            filtered_relations,
+            state,
+        )
 
 
 def filter_ces(
@@ -249,116 +260,123 @@ def resolve_conflicts(subsystem, ces, max_k=3, relations=[]):
     )
 
 
-def get_big_phi(ces, relations, indices, partitions=None):
+def get_big_phi(subsystem, ces, relations, indices, partitions=None):
 
-    # Getting the small phi values of each (linked) distinctions and computes their sum
-    # NOTE: this first part was post hoc added to make computations work with linked distinctions
-    phis = [
-        min([cause.phi, effect.phi])
-        for cause, effect in zip(
-            [mice for mice in ces if mice.direction == CAUSE],
-            [mice for mice in ces if mice.direction == EFFECT],
-        )
-    ]
-    sum_of_small_phi = sum(phis) + sum([r.phi for r in relations])
-
-    # Assuming single unit systems are irreducible by definition
-    if len(indices) == 1:
-        return sum_of_small_phi, (((), ()), "disintegration")
-
-    # Getting all possible bipartitions of the system (if no specific set of partitions were provided)
-    if partitions == None:
-        partitions = [
-            part
-            for part in pyphi.partition.bipartition(indices)
-            if all([len(p) > 0 for p in part])
+    if is_trivially_reducible(subsystem, ces):
+        return 0, ()
+    else:
+        # Getting the small phi values of each (linked) distinctions and computes their sum
+        # NOTE: this first part was post hoc added to make computations work with linked distinctions
+        phis = [
+            min([cause.phi, effect.phi])
+            for cause, effect in zip(
+                [mice for mice in ces if mice.direction == CAUSE],
+                [mice for mice in ces if mice.direction == EFFECT],
+            )
         ]
+        sum_of_small_phi = sum(phis) + sum([r.phi for r in relations])
 
-    # keeping track of the informativeness for each cut, to find the minimal one to use in Big Phi
-    informativeness = np.inf
+        # Assuming single unit systems are irreducible by definition
+        if len(indices) == 1:
+            return sum_of_small_phi, (((), ()), "disintegration")
 
-    # Looping through every bipartition
-    for parts in (
-        tqdm(partitions, desc="System partitions")
-        if len(partitions) > 100 and len(indices) > 4
-        else partitions
-    ):
-        # looping through the four types of cuts between the parts
-        for p1, p2, direction in product(parts, parts, [CAUSE, EFFECT]):
-            # Making sure the two parts are different
-            if not p1 == p2:
+        # Getting all possible bipartitions of the system (if no specific set of partitions were provided)
+        if partitions == None:
+            partitions = [
+                part
+                for part in pyphi.partition.bipartition(indices)
+                if all([len(p) > 0 for p in part])
+            ]
 
-                # Finding the mices that are untouched by the cut
-                untouched_mices = pyphi.models.CauseEffectStructure(
-                    [
-                        mice
-                        for mice in ces
-                        if not distinction_touched(mice, p1, p2, direction)
-                    ]
-                )
+        # keeping track of the informativeness for each cut, to find the minimal one to use in Big Phi
+        informativeness = np.inf
 
-                # Getting the mechanisms that specify untouched relations
-                # NOTE: This is needed do to the linking of purviews to kill purviews linked to killed "distinctions"
-                causeeffect_mechanisms = set(
-                    [
-                        mice.mechanism
-                        for mice in untouched_mices
-                        if mice.direction == CAUSE
-                    ]
-                ).intersection(
-                    set(
+        # Looping through every bipartition
+        for parts in (
+            tqdm(partitions, desc="System partitions")
+            if len(partitions) > 100 and len(indices) > 4
+            else partitions
+        ):
+            # looping through the four types of cuts between the parts
+            for p1, p2, direction in product(parts, parts, [CAUSE, EFFECT]):
+                # Making sure the two parts are different
+                if not p1 == p2:
+
+                    # Finding the mices that are untouched by the cut
+                    untouched_mices = pyphi.models.CauseEffectStructure(
+                        [
+                            mice
+                            for mice in ces
+                            if not distinction_touched(mice, p1, p2, direction)
+                        ]
+                    )
+
+                    # Getting the mechanisms that specify untouched relations
+                    # NOTE: This is needed do to the linking of purviews to kill purviews linked to killed "distinctions"
+                    causeeffect_mechanisms = set(
                         [
                             mice.mechanism
                             for mice in untouched_mices
-                            if mice.direction == EFFECT
+                            if mice.direction == CAUSE
+                        ]
+                    ).intersection(
+                        set(
+                            [
+                                mice.mechanism
+                                for mice in untouched_mices
+                                if mice.direction == EFFECT
+                            ]
+                        )
+                    )
+
+                    # Keeping MICEs specified by mechanisms that have both a cause and an effect
+                    untouched_ces = pyphi.models.CauseEffectStructure(
+                        [
+                            mice
+                            for mice in untouched_mices
+                            if mice.mechanism in causeeffect_mechanisms
                         ]
                     )
-                )
 
-                # Keeping MICEs specified by mechanisms that have both a cause and an effect
-                untouched_ces = pyphi.models.CauseEffectStructure(
-                    [
-                        mice
-                        for mice in untouched_mices
-                        if mice.mechanism in causeeffect_mechanisms
+                    # Computing relations for the untouched CES
+                    untouched_relations = [
+                        r for r in relations if relation_untouched(untouched_ces, r)
                     ]
-                )
 
-                # Computing relations for the untouched CES
-                untouched_relations = [
-                    r for r in relations if relation_untouched(untouched_ces, r)
-                ]
+                    # Getting small phi for distinctions
+                    # NOTE: Assuming the causes and effects are ordered in the same way...
+                    phis = [
+                        min([cause.phi, effect.phi])
+                        for cause, effect in zip(
+                            [mice for mice in untouched_ces if mice.direction == CAUSE],
+                            [
+                                mice
+                                for mice in untouched_ces
+                                if mice.direction == EFFECT
+                            ],
+                        )
+                    ]
 
-                # Getting small phi for distinctions
-                # NOTE: Assuming the causes and effects are ordered in the same way...
-                phis = [
-                    min([cause.phi, effect.phi])
-                    for cause, effect in zip(
-                        [mice for mice in untouched_ces if mice.direction == CAUSE],
-                        [mice for mice in untouched_ces if mice.direction == EFFECT],
+                    # computing the sum of small phi for Big Phi computation
+                    sum_phi_untouched = sum(phis) + sum(
+                        [r.phi for r in untouched_relations]
                     )
-                ]
 
-                # computing the sum of small phi for Big Phi computation
-                sum_phi_untouched = sum(phis) + sum(
-                    [r.phi for r in untouched_relations]
-                )
+                    # Checking how much small phi is lost by the partition
+                    lost_phi = sum_of_small_phi - sum_phi_untouched
 
-                # Checking how much small phi is lost by the partition
-                lost_phi = sum_of_small_phi - sum_phi_untouched
+                    # If this cut is the least destructive cut found so far, we save some values
+                    if lost_phi < informativeness:
+                        informativeness = lost_phi
+                        min_cut = parts, p1, p2, direction
 
-                # If this cut is the least destructive cut found so far, we save some values
-                if lost_phi < informativeness:
-                    informativeness = lost_phi
-                    min_cut = parts, p1, p2, direction
+        # Computing selectivity
+        # NOTE: the denominator must be corrected to allow comparison of systems with differing sizes
+        selectivity = sum_of_small_phi / 2 ** len(indices)
 
-    # Computing selectivity
-    # NOTE: the denominator must be corrected to allow comparison of systems with differing sizes
-    selectivity = sum_of_small_phi / 2 ** len(indices)
-
-    # Compute Big Phi and return
-    big_phi = selectivity * (informativeness)
-    return big_phi, min_cut
+        # Compute Big Phi and return
+        big_phi = selectivity * (informativeness)
+        return big_phi, min_cut
 
 
 def compute_relations(subsystem, ces, max_k=3, num_relations=False):
@@ -741,7 +759,9 @@ def get_all_ces(system, ces=None, max_k=3, relations=[]):
         ) = compute_rels_and_ces_for_compositional_state(
             system, compositional_state, ces, max_k, relations
         )
-        phi, cut = get_big_phi(filtered_ces, filtered_relations, system.node_indices)
+        phi, cut = get_big_phi(
+            system, filtered_ces, filtered_relations, system.node_indices
+        )
 
         all_ces.append(
             {
