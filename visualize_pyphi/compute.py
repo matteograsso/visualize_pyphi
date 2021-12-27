@@ -222,12 +222,12 @@ def filter_ces(
             max_ces = Parallel(
                 n_jobs=n_jobs, verbose=verbose, backend="loky", batch_size=batch_size
             )(
-                delayed(resolve_conflicts)(subsystem, ces, max_relations_k)
+                delayed(resolve_conflicts)(subsystem, ces, max_relations_k, relations)
                 for ces in tqdm(all_cess)
             )
         else:
             max_ces = [
-                resolve_conflicts(subsystem, ces, max_relations_k)
+                resolve_conflicts(subsystem, ces, max_relations_k, relations)
                 for ces in tqdm(all_cess)
             ]
 
