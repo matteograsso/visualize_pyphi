@@ -9,6 +9,7 @@ from tqdm.auto import tqdm
 import random
 from operator import attrgetter
 from joblib import Parallel, delayed
+import scipy
 
 
 CAUSE = pyphi.direction.Direction(0)
@@ -369,11 +370,41 @@ def get_big_phi(subsystem, ces, relations, indices, partitions=None):
 
         # Computing selectivity
         # NOTE: the denominator must be corrected to allow comparison of systems with differing sizes
-        selectivity = sum_of_small_phi / 2 ** len(indices)
+        selectivity = sum_of_small_phi / optimum_sum_small_phi(len(indices))
 
         # Compute Big Phi and return
         big_phi = selectivity * (informativeness)
         return big_phi, min_cut
+
+def number_of_possible_relations_with_overlap(n, k):
+    """Return the number of possible relations with overlap of size k."""
+    return (
+        (-1) ** (k - 1)
+        * scipy.special.comb(n, k)
+        * (2 ** (2 ** (n - k + 1)) - 1 - 2 ** (n - k + 1))
+    )
+
+
+def optimum_sum_small_phi_relations(n):
+    """Return the 'best possible' sum of small phi for relations."""
+    # \sum_{k=1}^{n} (size of purview) * (number of relations with that purview size)
+    return sum(
+        k * number_of_possible_relations_with_overlap(n, k) for k in range(1, n + 1)
+    )
+
+
+def optimum_sum_small_phi_distinctions_one_direction(n):
+    """Return the 'best possible' sum of small phi for distinctions in one direction"""
+    # \sum_{k=1}^{n} k(n choose k)
+    return (2 / n) * (2 ** n)
+
+
+def optimum_sum_small_phi(n):
+    """Return the 'best possible' sum of small phi for the system."""
+    # Double distinction term for cause & effect sides
+    distinction_term = 2 * optimum_sum_small_phi_distinctions_one_direction(n)
+    relation_term = optimum_sum_small_phi_relations(n)
+    return distinction_term + relation_term
 
 
 def compute_relations(subsystem, ces, max_k=3, num_relations=False):
