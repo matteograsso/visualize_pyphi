@@ -6,6 +6,11 @@ from joblib import Parallel, delayed
 import pickle
 from tqdm.auto import tqdm
 
+from IPython.display import Audio, display
+
+
+def done():
+    display(Audio(filename="/home/mgrasso/projects/chime2.wav",autoplay=True))
 
 def flatten(l, ltypes=(list, tuple)):
     ltype = type(l)
