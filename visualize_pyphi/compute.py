@@ -12,8 +12,8 @@ from joblib import Parallel, delayed
 import scipy
 
 
-CAUSE = pyphi.direction.Direction(0)
-EFFECT = pyphi.direction.Direction(1)
+CAUSE = pyphi.Direction(0)
+EFFECT = pyphi.Direction(1)
 
 
 def specified_elements(ces, direction):
@@ -26,13 +26,18 @@ def specified_elements(ces, direction):
         set: The elements.
     """
     return set(
-                [
-                    u
-                    for distinction in ces
-                    for u in distinction.purview
-                    if (distinction.direction == direction
-                    and not (len(distinction.mechanism) == 1 and distinction.mechanism == distinction.purview))
-                ]
+        [
+            u
+            for distinction in ces
+            for u in distinction.purview
+            if (
+                distinction.direction == direction
+                and not (
+                    len(distinction.mechanism) == 1
+                    and distinction.mechanism == distinction.purview
+                )
+            )
+        ]
     )
 
 
@@ -87,7 +92,8 @@ def get_maximal_ces(system, ces=None, max_k=3, compositional_states=[], relation
         compositional_states
         if len(compositional_states) < 2
         else tqdm(
-            compositional_states, desc="Computing Big Phi for all compositional states",
+            compositional_states,
+            desc="Computing Big Phi for all compositional states",
         )
     ):
         # Filter the CES and relations
@@ -299,7 +305,7 @@ def get_big_phi(subsystem, ces, relations, indices, partitions=None):
             for p1, p2, direction in product(parts, parts, [CAUSE, EFFECT]):
                 # Making sure the two parts are different
                 if not p1 == p2:
-
+                    print(p1, p2, direction)
                     # Finding the mices that are untouched by the cut
                     untouched_mices = pyphi.models.CauseEffectStructure(
                         [
@@ -375,6 +381,7 @@ def get_big_phi(subsystem, ces, relations, indices, partitions=None):
         # Compute Big Phi and return
         big_phi = selectivity * (informativeness)
         return big_phi, min_cut
+
 
 def number_of_possible_relations_with_overlap(n, k):
     """Return the number of possible relations with overlap of size k."""
@@ -560,7 +567,10 @@ def get_all_compositional_states(ces):
 
     all_compositional_states = [
         {c: c_state, e: e_state}
-        for c_state, e_state in product(cause_states, effect_states,)
+        for c_state, e_state in product(
+            cause_states,
+            effect_states,
+        )
     ]
     return all_compositional_states
 

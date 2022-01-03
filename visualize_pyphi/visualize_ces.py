@@ -21,8 +21,8 @@ import matplotlib.pyplot as plt
 from scipy.special import comb
 import math
 
-CAUSE = pyphi.direction.Direction(0)
-EFFECT = pyphi.direction.Direction(1)
+CAUSE = pyphi.Direction(0)
+EFFECT = pyphi.Direction(1)
 
 
 def flatten(iterable):
@@ -379,7 +379,9 @@ def plot_ces(
     # Get mechanism and purview labels
     mechanism_labels = [
         label_mechanism(
-            mice, bold=False, state=subsystem.state if state_as_lettercase else False,
+            mice,
+            bold=False,
+            state=subsystem.state if state_as_lettercase else False,
         )
         for mice in ces
     ]
@@ -393,7 +395,10 @@ def plot_ces(
         text=mechanism_labels,
         name="Mechanism Labels",
         showlegend=True,
-        textfont=dict(size=mechanism_labels_size, color="black",),
+        textfont=dict(
+            size=mechanism_labels_size,
+            color="black",
+        ),
         textposition=mechanism_label_position,
         hoverinfo="text",
         hovertext=False,
@@ -501,7 +506,10 @@ def plot_ces(
         textposition=purview_label_position,
         name="Cause Purview Labels",
         showlegend=True,
-        textfont=dict(size=purview_labels_size, color="red",),
+        textfont=dict(
+            size=purview_labels_size,
+            color="red",
+        ),
         hoverinfo="text",
         hovertext=causes_hovertext,
         hoverlabel=dict(bgcolor="red"),
@@ -519,7 +527,10 @@ def plot_ces(
         textposition=purview_label_position,
         name="Effect Purview Labels",
         showlegend=True,
-        textfont=dict(size=purview_labels_size, color="green",),
+        textfont=dict(
+            size=purview_labels_size,
+            color="green",
+        ),
         hoverinfo="text",
         hovertext=effects_hovertext,
         hoverlabel=dict(bgcolor="green"),
@@ -542,7 +553,7 @@ def plot_ces(
             mode="lines",
             name="Links",
             line_width=links_widths[i],
-            line_color=["orange"], #["red"] if mice.direction == CAUSE else ["green"],
+            line_color=["orange"],  # ["red"] if mice.direction == CAUSE else ["green"],
             hoverinfo="skip",
         )
         links_counter += 1
@@ -580,7 +591,11 @@ def plot_ces(
                 z=chains_zs[m],
                 mode="lines",
                 name="Chains",
-                line={"dash": "dash", "color": "black", "width": chain_width,},
+                line={
+                    "dash": "dash",
+                    "color": "black",
+                    "width": chain_width,
+                },
                 hoverinfo="skip",
             )
             fig.add_trace(chains_trace)
@@ -599,7 +614,11 @@ def plot_ces(
         if edges:
             # Convert to DataFrame
             edges = pd.DataFrame(
-                dict(x=x_purview[edges], y=y_purview[edges], z=z_purview[edges],)
+                dict(
+                    x=x_purview[edges],
+                    y=y_purview[edges],
+                    z=z_purview[edges],
+                )
             )
 
             # Plot edges separately:
@@ -774,22 +793,28 @@ def plot_ces(
         )
         for dimension in range(3)
     ]
-    
+
     # convert eye_coordinates to cartesian
-    # eye_coordinates is given in 3d polar coordinates: 
+    # eye_coordinates is given in 3d polar coordinates:
     # (horizontal angle from x, vertical angle from xy-plane, distance) in degrees
-    x_eye = eye_coordinates[2] * np.sin((-eye_coordinates[1]+90)*2*np.pi/360) * np.cos(-eye_coordinates[0]*2*np.pi/360)
-    y_eye = eye_coordinates[2] * np.sin((-eye_coordinates[1]+90)*2*np.pi/360) * np.sin(-eye_coordinates[0]*2*np.pi/360)
-    z_eye = eye_coordinates[2] * np.cos((-eye_coordinates[1]+90)*2*np.pi/360)
-    
+    x_eye = (
+        eye_coordinates[2]
+        * np.sin((-eye_coordinates[1] + 90) * 2 * np.pi / 360)
+        * np.cos(-eye_coordinates[0] * 2 * np.pi / 360)
+    )
+    y_eye = (
+        eye_coordinates[2]
+        * np.sin((-eye_coordinates[1] + 90) * 2 * np.pi / 360)
+        * np.sin(-eye_coordinates[0] * 2 * np.pi / 360)
+    )
+    z_eye = eye_coordinates[2] * np.cos((-eye_coordinates[1] + 90) * 2 * np.pi / 360)
+
     layout = go.Layout(
         showlegend=show_legend,
         scene_xaxis=axes[0],
         scene_yaxis=axes[1],
         scene_zaxis=axes[2],
-        scene_camera=dict(
-            eye=dict(x=x_eye, y=y_eye, z=z_eye)
-        ),
+        scene_camera=dict(eye=dict(x=x_eye, y=y_eye, z=z_eye)),
         hovermode=hovermode,
         title="",
         title_font_size=30,
