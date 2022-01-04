@@ -305,7 +305,7 @@ def get_big_phi(subsystem, ces, relations, indices, partitions=None):
             for p1, p2, direction in product(parts, parts, [CAUSE, EFFECT]):
                 # Making sure the two parts are different
                 if not p1 == p2:
-                    print(p1, p2, direction)
+
                     # Finding the mices that are untouched by the cut
                     untouched_mices = pyphi.models.CauseEffectStructure(
                         [
