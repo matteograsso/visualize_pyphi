@@ -187,13 +187,19 @@ def filter_ces(
     parallel=True,
     verbose=5,
     batch_size=1000,
+    phi_structures=None,
 ):
     # Check for trivial reducibility
     if is_trivially_reducible(subsystem, ces):
         print("Subsystem is trivially reducible!")
 
     else:
-        if compositional_state == None:
+        if phi_structures:
+            all_cess = phi_structures
+            print("using phi structures")
+
+        elif compositional_state == None:
+            print("computing phi structures")
             purview_states = dict()  # compositional_state.copy()
             for mice in ces:
                 if not (mice.direction, mice.purview) in purview_states.keys():
@@ -202,6 +208,7 @@ def filter_ces(
                     purview_states[(mice.direction, mice.purview)].append(mice)
 
             all_cess = list(itertools.product(*purview_states.values()))
+
         else:
             # next we run through all the mices and append any mice that has a state corresponding to the compositional state
             mices_with_correct_state = dict()  # compositional_state.copy()
@@ -304,6 +311,7 @@ def get_big_phi(subsystem, ces, relations, indices, partitions=None):
             # looping through the four types of cuts between the parts
             for p1, p2, direction in product(parts, parts, [CAUSE, EFFECT]):
                 # Making sure the two parts are different
+
                 if not p1 == p2:
 
                     # Finding the mices that are untouched by the cut

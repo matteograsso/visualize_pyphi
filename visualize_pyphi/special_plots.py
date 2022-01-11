@@ -38,27 +38,27 @@ def plot_effect_of_MIP(
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
 
-    Phi, cut = compute.get_big_phi(ces, relations, system.node_indices, partitions)
+    Phi, cut = compute.get_big_phi(
+        system, ces, relations, system.node_indices, partitions
+    )
     untouched_ces, untouched_relations = compute.get_untouced_ces_and_rels(
         ces, relations, cut
     )
     untouched_relations = [
         r for r in relations if compute.relation_untouched(untouched_ces, r)
     ]
-    
+
     touched_ces = [mice for mice in ces if mice not in untouched_ces]
-    touched_relations = [
-        r for r in relations if r not in untouched_relations
-    ]
-    
-    touched_ces_expanded = list(set([mice for relation in relations for mice in relation.relata]))
+    touched_relations = [r for r in relations if r not in untouched_relations]
+
+    touched_ces_expanded = list(
+        set([mice for relation in relations for mice in relation.relata])
+    )
 
     cess = [ces, touched_ces_expanded, touched_ces]
     relations = [relations, touched_relations, []]
 
-    default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False
-    )
+    default_common_kwargs = dict(network_name=figure_name, show_legend=False)
     default_common_kwargs.update(common_kwargs)
 
     default_uncommon_kwargs = [
@@ -129,11 +129,7 @@ def plot_component(
 
     component_context_relations = compute.context_relations(
         relations,
-        [
-            mice
-            for mice, distinction in zip(ces, component_distinctions)
-            if distinction
-        ],
+        [mice for mice, distinction in zip(ces, component_distinctions) if distinction],
     )
     component_context_ces = CauseEffectStructure(
         set(
@@ -197,6 +193,7 @@ def plot_component(
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
 
+
 def compound_distinction(
     system,
     ces,
@@ -207,14 +204,15 @@ def compound_distinction(
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
 
-    elementary_distinction = compute.get_mechanism_subtext(ces,mechanism)
+    elementary_distinction = compute.get_mechanism_subtext(ces, mechanism)
     relations_among = compute.filter_relations(relations, elementary_distinction)
-    
+
     cess = [ces, elementary_distinction, ces]
     relations = [relations, relations_among, relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, 
+        network_name=figure_name,
+        show_legend=False,
     )
     default_common_kwargs.update(common_kwargs)
 
@@ -241,7 +239,7 @@ def compound_distinction(
             show_mesh=False,
             save_plot_to_png=False,
             save_plot_to_html=False,
-            link_width_range = (6, 10),
+            link_width_range=(6, 10),
         ),
         dict(
             surface_colorscale="Oranges",
@@ -251,10 +249,10 @@ def compound_distinction(
             matteo_edge_color=False,
             show_links=False,
             show_labels=False,
-            transparent_edges=True
+            transparent_edges=True,
         ),
     ]
-    
+
     default_uncommon_kwargs = [
         dict(**default_uncommon_kwarg, **uncommon_kwarg)
         for default_uncommon_kwarg, uncommon_kwarg in zip(
@@ -279,23 +277,37 @@ def compound_relation(
     uncommon_kwargs=[dict(), dict(), dict(), dict()],
 ):
 
-    elementary_distinction_1 = compute.get_mechanism_subtext(ces,mechanisms[0])
+    elementary_distinction_1 = compute.get_mechanism_subtext(ces, mechanisms[0])
     relations_among_1 = compute.filter_relations(relations, elementary_distinction_1)
-    
-    elementary_distinction_2 = compute.get_mechanism_subtext(ces,mechanisms[1])
+
+    elementary_distinction_2 = compute.get_mechanism_subtext(ces, mechanisms[1])
     relations_among_2 = compute.filter_relations(relations, elementary_distinction_2)
-    
-    elementary_distinctions = CauseEffectStructure([mice for mice in elementary_distinction_1] + [mice for mice in elementary_distinction_2])
-    relations_between = [r for r in compute.filter_relations(relations, elementary_distinctions) if r not in relations_among_1+relations_among_2]
-    
+
+    elementary_distinctions = CauseEffectStructure(
+        [mice for mice in elementary_distinction_1]
+        + [mice for mice in elementary_distinction_2]
+    )
+    relations_between = [
+        r
+        for r in compute.filter_relations(relations, elementary_distinctions)
+        if r not in relations_among_1 + relations_among_2
+    ]
+
     print(relations_among_1)
     print(relations_among_2)
-    
-    cess = [ces, elementary_distinction_1, elementary_distinction_2, elementary_distinctions]
+
+    cess = [
+        ces,
+        elementary_distinction_1,
+        elementary_distinction_2,
+        elementary_distinctions,
+    ]
     relations = [relations, relations_among_1, relations_among_2, relations_between]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, show_labels=False,
+        network_name=figure_name,
+        show_legend=False,
+        show_labels=False,
     )
     default_common_kwargs.update(common_kwargs)
 
@@ -342,7 +354,7 @@ def compound_relation(
             matteo_edge_color=True,
             show_links=False,
             show_edges=True,
-            edge_size_range = (6, 10),
+            edge_size_range=(6, 10),
         ),
     ]
     default_uncommon_kwargs = [
@@ -357,8 +369,7 @@ def compound_relation(
     ]
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
-    
-    
+
 
 def substructure(
     system,
@@ -370,14 +381,17 @@ def substructure(
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
 
-    sub_ces = [mice for mice in ces if mice.mechanism in mechanisms]#elementary_distinction = compute.get_mechanism_subtext(ces,mechanism)
+    sub_ces = [
+        mice for mice in ces if mice.mechanism in mechanisms
+    ]  # elementary_distinction = compute.get_mechanism_subtext(ces,mechanism)
     relations_among = compute.filter_relations(relations, sub_ces)
-    
+
     cess = [ces, sub_ces, ces]
     relations = [relations, relations_among, relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, 
+        network_name=figure_name,
+        show_legend=False,
     )
     default_common_kwargs.update(common_kwargs)
 
@@ -401,10 +415,10 @@ def substructure(
             show_links=True,
             save_plot_to_png=False,
             save_plot_to_html=False,
-            link_width_range = (6, 10),
-            edge_size_range = (6, 10),
-            show_purview_labels = False,
-            show_mechanism_labels = True,
+            link_width_range=(6, 10),
+            edge_size_range=(6, 10),
+            show_purview_labels=False,
+            show_mechanism_labels=True,
             show_labels=False,
         ),
         dict(
@@ -415,10 +429,10 @@ def substructure(
             matteo_edge_color=False,
             show_links=False,
             show_labels=False,
-            transparent_edges=True
+            transparent_edges=True,
         ),
     ]
-    
+
     default_uncommon_kwargs = [
         dict(**default_uncommon_kwarg, **uncommon_kwarg)
         for default_uncommon_kwarg, uncommon_kwarg in zip(
@@ -432,7 +446,6 @@ def substructure(
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
 
-    
 
 def mechanism_context(
     system,
@@ -444,14 +457,15 @@ def mechanism_context(
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
 
-    elementary_distinction = compute.get_mechanism_context(ces,mechanism)
+    elementary_distinction = compute.get_mechanism_context(ces, mechanism)
     relations_among = compute.filter_relations(relations, elementary_distinction)
-    
+
     cess = [ces, elementary_distinction, ces]
     relations = [relations, relations_among, relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, 
+        network_name=figure_name,
+        show_legend=False,
     )
     default_common_kwargs.update(common_kwargs)
 
@@ -478,7 +492,7 @@ def mechanism_context(
             show_mesh=False,
             save_plot_to_png=False,
             save_plot_to_html=False,
-            link_width_range = (6, 10),
+            link_width_range=(6, 10),
         ),
         dict(
             surface_colorscale="Oranges",
@@ -488,10 +502,10 @@ def mechanism_context(
             matteo_edge_color=False,
             show_links=False,
             show_labels=False,
-            transparent_edges=True
+            transparent_edges=True,
         ),
     ]
-    
+
     default_uncommon_kwargs = [
         dict(**default_uncommon_kwarg, **uncommon_kwarg)
         for default_uncommon_kwarg, uncommon_kwarg in zip(
@@ -505,7 +519,7 @@ def mechanism_context(
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
 
-    
+
 def purview_context(
     system,
     ces,
@@ -516,14 +530,15 @@ def purview_context(
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
 
-    elementary_distinction = compute.get_purview_context(ces,purview)
+    elementary_distinction = compute.get_purview_context(ces, purview)
     relations_among = compute.filter_relations(relations, elementary_distinction)
-    
+
     cess = [ces, elementary_distinction, ces]
     relations = [relations, relations_among, relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, 
+        network_name=figure_name,
+        show_legend=False,
     )
     default_common_kwargs.update(common_kwargs)
 
@@ -550,7 +565,7 @@ def purview_context(
             show_mesh=False,
             save_plot_to_png=False,
             save_plot_to_html=False,
-            link_width_range = (6, 10),
+            link_width_range=(6, 10),
         ),
         dict(
             surface_colorscale="Oranges",
@@ -560,10 +575,10 @@ def purview_context(
             matteo_edge_color=False,
             show_links=False,
             show_labels=False,
-            transparent_edges=True
+            transparent_edges=True,
         ),
     ]
-    
+
     default_uncommon_kwargs = [
         dict(**default_uncommon_kwarg, **uncommon_kwarg)
         for default_uncommon_kwarg, uncommon_kwarg in zip(
@@ -577,7 +592,6 @@ def purview_context(
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
 
-    
 
 def unit_phi_fold(
     system,
@@ -588,14 +602,15 @@ def unit_phi_fold(
     common_kwargs=dict(),
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
-    elementary_distinction = compute.get_unit_context(ces,units)
+    elementary_distinction = compute.get_unit_context(ces, units)
     relations_among = compute.filter_relations(relations, elementary_distinction)
-    
+
     cess = [ces, elementary_distinction, ces]
     relations = [relations, relations_among, relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, 
+        network_name=figure_name,
+        show_legend=False,
     )
     default_common_kwargs.update(common_kwargs)
 
@@ -621,7 +636,7 @@ def unit_phi_fold(
             show_mesh=True,
             save_plot_to_png=False,
             save_plot_to_html=False,
-            link_width_range = (6, 10),
+            link_width_range=(6, 10),
         ),
         dict(
             surface_colorscale="Oranges",
@@ -631,10 +646,10 @@ def unit_phi_fold(
             matteo_edge_color=False,
             show_links=False,
             show_labels=False,
-            transparent_edges=True
+            transparent_edges=True,
         ),
     ]
-    
+
     default_uncommon_kwargs = [
         dict(**default_uncommon_kwarg, **uncommon_kwarg)
         for default_uncommon_kwarg, uncommon_kwarg in zip(
@@ -647,6 +662,7 @@ def unit_phi_fold(
     ]
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
+
 
 def purview_phi_fold(
     system,
@@ -658,22 +674,48 @@ def purview_phi_fold(
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
 
-    all_mices = [[mice for mice in ces if mice.mechanism==mechanism] for mechanism in mechanisms]
-    
-    all_context_relations = [[r for r in relations if any([relatum in mices for relatum in r.relata])] for mices in all_mices]
-    all_context_distinctions = [list(set([mice for relation in context_relations for mice in relation.relata])) for context_relations in all_context_relations]
+    all_mices = [
+        [mice for mice in ces if mice.mechanism == mechanism]
+        for mechanism in mechanisms
+    ]
+
+    all_context_relations = [
+        [r for r in relations if any([relatum in mices for relatum in r.relata])]
+        for mices in all_mices
+    ]
+    all_context_distinctions = [
+        list(set([mice for relation in context_relations for mice in relation.relata]))
+        for context_relations in all_context_relations
+    ]
 
     # Getting the relations that have relata in exactly one of the contexts
-    context_biding_relations = [r for r in relations 
-                                if all([any([relatum in context_distinctions for relatum in r.relata]) for context_distinctions in all_context_distinctions]) 
-                                and all([sum([relatum in context_distinctions for relatum in r.relata])==1 for context_distinctions in all_context_distinctions])]
-    required_mices = list(set([mice for relation in context_biding_relations for mice in relation.relata]))
-    
+    context_biding_relations = [
+        r
+        for r in relations
+        if all(
+            [
+                any([relatum in context_distinctions for relatum in r.relata])
+                for context_distinctions in all_context_distinctions
+            ]
+        )
+        and all(
+            [
+                sum([relatum in context_distinctions for relatum in r.relata]) == 1
+                for context_distinctions in all_context_distinctions
+            ]
+        )
+    ]
+    required_mices = list(
+        set([mice for relation in context_biding_relations for mice in relation.relata])
+    )
+
     cess = [ces, [mice for mices in all_mices for mice in mices], required_mices]
     relations = [relations, [], context_biding_relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, show_labels=False,
+        network_name=figure_name,
+        show_legend=False,
+        show_labels=False,
     )
     default_common_kwargs.update(common_kwargs)
 
@@ -718,8 +760,7 @@ def purview_phi_fold(
     ]
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
-    
-    
+
 
 def compound_phi_fold(
     system,
@@ -731,22 +772,48 @@ def compound_phi_fold(
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
 
-    all_mices = [[mice for mice in ces if mice.mechanism==mechanism] for mechanism in mechanisms]
-    
-    all_context_relations = [[r for r in relations if any([relatum in mices for relatum in r.relata])] for mices in all_mices]
-    all_context_distinctions = [list(set([mice for relation in context_relations for mice in relation.relata])) for context_relations in all_context_relations]
+    all_mices = [
+        [mice for mice in ces if mice.mechanism == mechanism]
+        for mechanism in mechanisms
+    ]
+
+    all_context_relations = [
+        [r for r in relations if any([relatum in mices for relatum in r.relata])]
+        for mices in all_mices
+    ]
+    all_context_distinctions = [
+        list(set([mice for relation in context_relations for mice in relation.relata]))
+        for context_relations in all_context_relations
+    ]
 
     # Getting the relations that have relata in exactly one of the contexts
-    context_biding_relations = [r for r in relations 
-                                if all([any([relatum in context_distinctions for relatum in r.relata]) for context_distinctions in all_context_distinctions]) 
-                                and all([sum([relatum in context_distinctions for relatum in r.relata])==1 for context_distinctions in all_context_distinctions])]
-    required_mices = list(set([mice for relation in context_biding_relations for mice in relation.relata]))
-    
+    context_biding_relations = [
+        r
+        for r in relations
+        if all(
+            [
+                any([relatum in context_distinctions for relatum in r.relata])
+                for context_distinctions in all_context_distinctions
+            ]
+        )
+        and all(
+            [
+                sum([relatum in context_distinctions for relatum in r.relata]) == 1
+                for context_distinctions in all_context_distinctions
+            ]
+        )
+    ]
+    required_mices = list(
+        set([mice for relation in context_biding_relations for mice in relation.relata])
+    )
+
     cess = [ces, [mice for mices in all_mices for mice in mices], required_mices]
     relations = [relations, [], context_biding_relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, show_labels=False,
+        network_name=figure_name,
+        show_legend=False,
+        show_labels=False,
     )
     default_common_kwargs.update(common_kwargs)
 
@@ -791,8 +858,7 @@ def compound_phi_fold(
     ]
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
-    
-    
+
 
 def content(
     system,
@@ -804,22 +870,48 @@ def content(
     uncommon_kwargs=[dict(), dict(), dict()],
 ):
 
-    all_mices = [[mice for mice in ces if mice.mechanism==mechanism] for mechanism in mechanisms]
-    
-    all_context_relations = [[r for r in relations if any([relatum in mices for relatum in r.relata])] for mices in all_mices]
-    all_context_distinctions = [list(set([mice for relation in context_relations for mice in relation.relata])) for context_relations in all_context_relations]
+    all_mices = [
+        [mice for mice in ces if mice.mechanism == mechanism]
+        for mechanism in mechanisms
+    ]
+
+    all_context_relations = [
+        [r for r in relations if any([relatum in mices for relatum in r.relata])]
+        for mices in all_mices
+    ]
+    all_context_distinctions = [
+        list(set([mice for relation in context_relations for mice in relation.relata]))
+        for context_relations in all_context_relations
+    ]
 
     # Getting the relations that have relata in exactly one of the contexts
-    context_biding_relations = [r for r in relations 
-                                if all([any([relatum in context_distinctions for relatum in r.relata]) for context_distinctions in all_context_distinctions]) 
-                                and all([sum([relatum in context_distinctions for relatum in r.relata])==1 for context_distinctions in all_context_distinctions])]
-    required_mices = list(set([mice for relation in context_biding_relations for mice in relation.relata]))
-    
+    context_biding_relations = [
+        r
+        for r in relations
+        if all(
+            [
+                any([relatum in context_distinctions for relatum in r.relata])
+                for context_distinctions in all_context_distinctions
+            ]
+        )
+        and all(
+            [
+                sum([relatum in context_distinctions for relatum in r.relata]) == 1
+                for context_distinctions in all_context_distinctions
+            ]
+        )
+    ]
+    required_mices = list(
+        set([mice for relation in context_biding_relations for mice in relation.relata])
+    )
+
     cess = [ces, [mice for mices in all_mices for mice in mices], required_mices]
     relations = [relations, [], context_biding_relations]
 
     default_common_kwargs = dict(
-        network_name=figure_name, show_legend=False, show_labels=False,
+        network_name=figure_name,
+        show_legend=False,
+        show_labels=False,
     )
     default_common_kwargs.update(common_kwargs)
 
@@ -864,6 +956,8 @@ def content(
     ]
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
+
+
 def compound_distinction_old(
     system,
     ces,
