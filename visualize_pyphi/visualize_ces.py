@@ -202,6 +202,7 @@ def plot_ces(
     base_z_offset=0.2,
     base_width_scale=0.8,
     base_opacity=0.90,
+    base_rotation=math.pi,
     base_intensity=1.0,
     base_color="white",
     user_mechanism_coordinates=None,
@@ -324,6 +325,7 @@ def plot_ces(
                 center=(0, 0),
                 z=((k / N_units) * base_height_scale) + base_z_offset,
                 scale=base_width_scale,
+                angle = base_rotation
             )
         )
         for k in range(1, N_units + 1)
