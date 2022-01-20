@@ -15,7 +15,7 @@ from plotly import graph_objs as go
 from tqdm.notebook import tqdm
 import random
 import pyphi
-from pyphi import relations as rel
+import pyphi.relations as rel
 from pyphi.utils import powerset
 import matplotlib.pyplot as plt
 from scipy.special import comb
@@ -325,7 +325,7 @@ def plot_ces(
                 center=(0, 0),
                 z=((k / N_units) * base_height_scale) + base_z_offset,
                 scale=base_width_scale,
-                angle = base_rotation
+                angle=base_rotation,
             )
         )
         for k in range(1, N_units + 1)
