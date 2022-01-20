@@ -18,6 +18,8 @@ setup(
         "matplotlib",
         "scipy",
         "imageio",
+        "kaleido",
+        "blackcellmagic",
     ],
     classifiers=[
         "Development Status :: 1 - Planning",
