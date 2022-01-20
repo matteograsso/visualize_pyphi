@@ -199,16 +199,16 @@ def plot_ces(
     floor_height_scale=[2, 2, 1.5, 1.25, 1],
     cause_effect_distance=0.2,
     base_height_scale=2.7,
-    base_z_offset=0.2,
+    base_z_offset=0,
     base_width_scale=0.8,
     base_opacity=0.90,
     base_rotation=math.pi,
-    base_intensity=1.0,
-    base_color="white",
+    base_intensity=0.9,
+    base_color="grey",
     user_mechanism_coordinates=None,
     user_purview_coordinates=None,
-    mechanism_labels_size=40,
-    purview_labels_size=40,
+    mechanism_labels_size=30,
+    purview_labels_size=30,
     mechanism_label_position="middle center",
     purview_label_position="middle center",
     edge_size_range=(1, 3),
@@ -217,14 +217,14 @@ def plot_ces(
     transparent_edges=False,
     surface_size_range=(0.1, 0.99),
     surface_colorscale="Blues",
-    surface_opacity=0.6,
+    surface_opacity=0.15,
     axes_range=None,
-    eye_coordinates=(110, 2, 0.5),
+    eye_coordinates=(0, 25, 0.25),
     hovermode="x",
-    plot_dimensions=(2000, 1400),
+    plot_dimensions=(1400, 800),
     png_resolution=None,
     save_plot_to_html=True,
-    save_plot_to_png=True,
+    save_plot_to_png=False,
     show_mechanism_base=True,
     show_chains=True,
     show_links=True,
@@ -235,7 +235,7 @@ def plot_ces(
     show_purview_labels=False,
     colorcode_2_relations=True,
     show_legend=True,
-    transparent_background=True,
+    transparent_background=False,
     chain_width=3,
     fig=None,
     matteo_edge_color=True,
@@ -838,8 +838,10 @@ def plot_ces(
 
     if save_plot_to_html is True:
         plotly.io.write_html(fig, f"{network_name}.html")
+        print(f"Fig saved to {network_name}.html")
     elif type(save_plot_to_html) == str:
         plotly.io.write_html(fig, save_plot_to_html)
+        print(f"Fig saved to {save_plot_to_html}")
 
     if save_plot_to_png is True:
         if not png_resolution:
@@ -850,6 +852,7 @@ def plot_ces(
             height=png_resolution[1],
             scale=1,
         )
+        print(f"Fig saved to {network_name}.png")
 
     elif type(save_plot_to_png) == str:
         if not png_resolution:
@@ -861,5 +864,6 @@ def plot_ces(
             scale=1,
             #           transparent=transparent_background,
         )
+        print(f"Fig saved to {save_plot_to_png}")
 
     return fig
