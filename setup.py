@@ -10,13 +10,11 @@ setup(
     license="BSD 2-clause",
     packages=["visualize_pyphi"],
     install_requires=[
-        "pyphi",
         "tqdm",
         "numpy",
         "pandas",
         "plotly",
         "matplotlib",
-        "scipy",
         "imageio",
         "kaleido",
         "blackcellmagic",
