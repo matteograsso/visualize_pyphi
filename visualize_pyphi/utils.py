@@ -139,14 +139,14 @@ def parallcompute_distinction(subsystem, mechanism):
     potential_effects = subsystem.network.potential_purviews(
         pyphi.Direction.EFFECT, mechanism
     )
-
+    print(f"Evaluating {len(potential_causes)} causes...")
     futures_causes = [
         compute_mice.remote(subsystem, pyphi.Direction.CAUSE, mechanism, purview)
         for purview in potential_causes
     ]
     causes = ray.get(futures_causes)
     cause = max(causes)
-
+    print(f"Evaluating {len(potential_effects)} effects...")
     futures_effects = [
         compute_mice.remote(subsystem, pyphi.Direction.EFFECT, mechanism, purview)
         for purview in potential_effects
