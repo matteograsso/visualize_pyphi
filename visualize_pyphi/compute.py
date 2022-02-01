@@ -1085,7 +1085,8 @@ def get_linked_ces(ces, subsystem):
         [
             pyphi.models.mechanism.Concept(cause.mechanism, cause, effect, subsystem)
             for cause, effect in zip(causes, effects)
-        ]
+        ],
+        subsystem=subsystem,
     )
 
 
@@ -1149,3 +1150,150 @@ def get_all_Phi_R(linked_ces, relations, system):
         substructures.append([Phi_R, MIP, separated])
 
     return substructures
+
+
+def make_bag(all_mices):
+    bag = dict()
+    for mice in all_mices:
+        m = mice.mechanism
+        d = mice.direction
+        p = mice.purview
+
+        if m in bag.keys():
+            if d in bag[m].keys():
+                bag[m][d][p] = mice
+            else:
+                bag[m][d] = dict()
+                bag[m][d][p] = mice
+        else:
+            bag[m] = dict()
+            bag[m][d] = dict()
+            bag[m][d][p] = mice
+
+    return bag
+
+
+def get_bag_of_mices(subsystem, mechanisms, purviews, candidate="irreducible"):
+
+    if candidate == "irreducible":
+        return {
+            mechanism: {
+                direction: {
+                    purview: subsystem.find_mice(direction, mechanism, (purview,))
+                    for purview in purviews
+                }
+                for direction in [
+                    C,
+                    E,
+                ]
+            }
+            for mechanism in mechanisms
+        }
+
+    elif candidate == "miw":
+
+        # compute candidate mices for every purview
+        all_mices = []
+
+        for mechanism in tqdm(mechanisms):
+            for direction in [C, E]:
+                candidate_mices = [
+                    subsystem.find_mice(direction, mechanism, (purview,))
+                    for purview in purviews
+                ]
+                # check if each mice is maximally irreducible within
+                candidate_mices_MIW = [
+                    mice
+                    for mice in candidate_mices
+                    if mice.phi > 0
+                    and not any(
+                        [
+                            all([unit in mice.purview for unit in mice2.purview])
+                            and mice2.phi > mice.phi
+                            for mice2 in candidate_mices
+                        ]
+                    )
+                ]
+
+                all_mices.extend(candidate_mices_MIW)
+
+        bag = make_bag(all_mices)
+        return bag
+
+
+def candidate_concepts(bag_of_mices, method="maximize_phi"):
+
+    if method == "maximize_phi":
+        # Pick the maximal mic and mie for every mechanism represented in the bag of mices
+        concepts = dict()
+        for mechanism, all_mices in bag_of_mices.items():
+            max_mices = []
+            for direction, directed_mices in all_mices.items():
+                phi = 0
+                max_mice = None
+                for purview, mice in directed_mices.items():
+
+                    if mice.phi >= phi:
+                        max_mice = mice
+                        phi = mice.phi
+
+                if phi > 0:
+                    max_mices.append((max_mice, phi))
+
+            if len(max_mices) > 1:
+                concepts[(max_mices[0][0], max_mices[1][0])] = min(
+                    [max_mices[0][1], max_mices[1][1]]
+                )
+
+        if len(concepts) < 1:
+            return None
+        else:
+            return concepts
+
+
+#     if method=='reflexivity':
+#     # Pick the purviews over the mechanism itself first
+
+
+def prune_bag_of_mices(bag_of_mices, concept):
+
+    new_bag = {
+        mechanism: {
+            direction: {
+                purview: bag_of_mices[mechanism][direction][purview]
+                for purview, mice in directed_mices.items()
+                if (
+                    not mechanism == concept[0].mechanism
+                    and not (
+                        concept[0].direction == direction
+                        and concept[0].purview == purview
+                    )
+                )
+                and (
+                    not mechanism == concept[1].mechanism
+                    and not (
+                        concept[1].direction == direction
+                        and concept[1].purview == purview
+                    )
+                )
+            }
+            for direction, directed_mices in all_mices.items()
+        }
+        for mechanism, all_mices in bag_of_mices.items()
+    }
+    return new_bag
+
+
+def CES_from_bag_of_mices(bag_of_mices):
+    max_concepts = []
+    while len(bag_of_mices):
+        concepts = candidate_concepts(bag_of_mices)
+        if concepts == None:
+            break
+
+        max_concept = sorted(concepts, reverse=True)[0]
+        bag_of_mices = prune_bag_of_mices(bag_of_mices, max_concept)
+
+        max_concepts.extend([mice for mice in max_concept])
+
+    return sep(max_concepts)
