@@ -5,12 +5,14 @@ import pyphi
 from joblib import Parallel, delayed
 import pickle
 from tqdm.auto import tqdm
+import ray
 
 from IPython.display import Audio, display
 
 
 def done():
-    display(Audio(filename="/home/mgrasso/projects/chime2.wav",autoplay=True))
+    display(Audio(filename="/home/mgrasso/projects/chime2.wav", autoplay=True))
+
 
 def flatten(l, ltypes=(list, tuple)):
     ltype = type(l)
@@ -83,7 +85,12 @@ def compute_k_relations_chunk(chunk):
 
 
 def parallcompute_ks_relations(
-    subsystem, separated_ces, ks, n_jobs=-1, chunk_size=5000, verbose=5,
+    subsystem,
+    separated_ces,
+    ks,
+    n_jobs=-1,
+    chunk_size=5000,
+    verbose=5,
 ):
     all_purviews = separated_ces
     ks_relations = []
@@ -117,5 +124,34 @@ def loadpkl(name):
         return pickle.load(f)
 
 
-# def compress_relations(ces, relations):
-#     [dict()]
+@ray.remote
+def compute_mice(subsystem, direction, mechanism, purview):
+    # Compute a single mice
+    mice = subsystem.find_mice(direction, mechanism, (purview,))
+    return mice
+
+
+def parallcompute_distinction(subsystem, mechanism):
+    # Compute all potential mices of a distinction in parallel
+    potential_causes = subsystem.network.potential_purviews(
+        pyphi.Direction.CAUSE, mechanism
+    )
+    potential_effects = subsystem.network.potential_purviews(
+        pyphi.Direction.EFFECT, mechanism
+    )
+
+    futures_causes = [
+        compute_mice.remote(subsystem, pyphi.Direction.CAUSE, mechanism, purview)
+        for purview in potential_causes
+    ]
+    causes = ray.get(futures_causes)
+    cause = max(causes)
+
+    futures_effects = [
+        compute_mice.remote(subsystem, pyphi.Direction.EFFECT, mechanism, purview)
+        for purview in potential_effects
+    ]
+    effects = ray.get(futures_effects)
+    effect = max(effects)
+
+    return pyphi.models.Concept(mechanism, cause, effect, subsystem)
