@@ -1,6 +1,8 @@
 import pyphi
 import toolz
 from pyphi.models.subsystem import FlatCauseEffectStructure as sep
+from tqdm.auto import tqdm
+
 
 directions = [pyphi.Direction.CAUSE, pyphi.Direction.EFFECT]
 
@@ -13,7 +15,7 @@ def get_all_miws(subsystem):
     all_miws = []
 
     for mechanism in tqdm(mechanisms):
-        for direction in [CAUSE, EFFECT]:
+        for direction in directions:
             candidate_mices = [
                 subsystem.find_mice(direction, mechanism, (purview,))
                 for purview in purviews
@@ -51,7 +53,6 @@ def get_empty_purv_slots(subsystem, max_mices_with_winners=None):
 
 
 def get_mices_over_purview_slots(slots, miws, subsystem):
-    directions = [pyphi.Direction.CAUSE, pyphi.Direction.EFFECT]
     return [
         [
             [
@@ -74,7 +75,6 @@ def get_max_mices_over_purview_slots(mices_over_purview_slots):
 
 def get_conflicts(max_mices_over_purview_slots, subsystem):
     slots = list(pyphi.utils.powerset(subsystem.node_indices, nonempty=True))
-    directions = [pyphi.Direction.CAUSE, pyphi.Direction.EFFECT]
     mices_with_same_mechanism = [
         [
             [
@@ -156,7 +156,7 @@ def get_remaining_miws(miws, max_mices_with_winners=None):
         return miws
 
 
-def fill_slots(subsystem):
+def fill_slots_bestbiggest(subsystem):
 
     slots = get_empty_purv_slots(subsystem)
     miws = separate_miws_for_direction(get_all_miws(subsystem))
@@ -227,10 +227,7 @@ def get_bag_of_mices(subsystem, mechanisms, purviews, candidate="irreducible"):
                     purview: subsystem.find_mice(direction, mechanism, (purview,))
                     for purview in purviews
                 }
-                for direction in [
-                    C,
-                    E,
-                ]
+                for direction in directions
             }
             for mechanism in mechanisms
         }
@@ -241,7 +238,7 @@ def get_bag_of_mices(subsystem, mechanisms, purviews, candidate="irreducible"):
         all_mices = []
 
         for mechanism in tqdm(mechanisms):
-            for direction in [C, E]:
+            for direction in directions:
                 candidate_mices = [
                     subsystem.find_mice(direction, mechanism, (purview,))
                     for purview in purviews
@@ -268,13 +265,12 @@ def get_bag_of_mices(subsystem, mechanisms, purviews, candidate="irreducible"):
 
 def get_mices_from_bag(bag_of_mices, subsystem):
     pset = list(pyphi.utils.powerset(subsystem.node_indices, nonempty=True))
-    directions = [pyphi.Direction.CAUSE, pyphi.Direction.EFFECT]
     bag = []
     for m in pset:
         for d in directions:
             for p in pset:
                 try:
-                    bag.append(bag2[m][d][p])
+                    bag.append(bag_of_mices[m][d][p])
                 except:
                     pass
     return bag
