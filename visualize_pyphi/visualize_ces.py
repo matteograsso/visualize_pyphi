@@ -20,6 +20,7 @@ from pyphi.utils import powerset
 import matplotlib.pyplot as plt
 from scipy.special import comb
 import math
+from pyphi.models.subsystem import FlatCauseEffectStructure
 
 CAUSE = pyphi.Direction(0)
 EFFECT = pyphi.Direction(1)
@@ -240,6 +241,8 @@ def plot_ces(
     fig=None,
     matteo_edge_color=True,
 ):
+    if not isinstance(FlatCauseEffectStructure, ces):
+        raise ValueError(f"ces must be a FlatCauseEffectStructure; got {type(ces)}")
 
     # Initialize figure
     if fig == None:
