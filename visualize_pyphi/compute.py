@@ -1183,8 +1183,8 @@ def get_bag_of_mices(subsystem, mechanisms, purviews, candidate="irreducible"):
                     for purview in purviews
                 }
                 for direction in [
-                    C,
-                    E,
+                    CAUSE,
+                    EFFECT,
                 ]
             }
             for mechanism in mechanisms
@@ -1196,7 +1196,7 @@ def get_bag_of_mices(subsystem, mechanisms, purviews, candidate="irreducible"):
         all_mices = []
 
         for mechanism in tqdm(mechanisms):
-            for direction in [C, E]:
+            for direction in [CAUSE, EFFECT]:
                 candidate_mices = [
                     subsystem.find_mice(direction, mechanism, (purview,))
                     for purview in purviews
@@ -1250,6 +1250,32 @@ def candidate_concepts(bag_of_mices, method="maximize_phi"):
         else:
             return concepts
 
+    if method == "fewer_MIWs_first":
+        # Pick the maximal mic and mie for every mechanism represented in the bag of mices
+        concepts = dict()
+        for mechanism, all_mices in bag_of_mices.items():
+            max_mices = []
+            for direction, directed_mices in all_mices.items():
+                phi = 0
+                max_mice = None
+                for purview, mice in directed_mices.items():
+
+                    if mice.phi >= phi:
+                        max_mice = mice
+                        phi = mice.phi
+
+                if phi > 0:
+                    max_mices.append((max_mice, phi))
+
+            if len(max_mices) > 1:
+                concepts[(max_mices[0][0], max_mices[1][0])] = min(
+                    [max_mices[0][1], max_mices[1][1]]
+                )
+
+        if len(concepts) < 1:
+            return None
+        else:
+            return concepts
 
 #     if method=='reflexivity':
 #     # Pick the purviews over the mechanism itself first
