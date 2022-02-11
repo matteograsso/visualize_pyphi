@@ -241,7 +241,7 @@ def plot_ces(
     fig=None,
     matteo_edge_color=True,
 ):
-    if not isinstance(FlatCauseEffectStructure, ces):
+    if not isinstance(ces, FlatCauseEffectStructure):
         raise ValueError(f"ces must be a FlatCauseEffectStructure; got {type(ces)}")
 
     # Initialize figure
