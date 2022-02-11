@@ -22,8 +22,8 @@ from scipy.special import comb
 import math
 from pyphi.models.subsystem import FlatCauseEffectStructure
 
-CAUSE = pyphi.Direction(0)
-EFFECT = pyphi.Direction(1)
+CAUSE = pyphi.Direction.CAUSE
+EFFECT = pyphi.Direction.EFFECT
 
 
 def flatten(iterable):
