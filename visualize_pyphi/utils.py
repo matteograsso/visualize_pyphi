@@ -68,6 +68,115 @@ def sepces2df(sepces, subsystem, csv_name=None):
     return df
 
 
+def ces2df(ces, subsystem, csv_name=None):
+    s = subsystem
+    ces_list = [
+        (
+            strp(i2n(d.mechanism, s)),
+            d.phi,
+            strp(i2n(d.cause.purview, s)),
+            strp(d.cause.specified_state),
+            d.cause.phi,
+            strp(i2n(d.effect.purview, s)),
+            strp(d.effect.specified_state),
+            d.effect.phi,
+        )
+        for d in ces
+    ]
+
+    df = pd.DataFrame(
+        ces_list, columns=["mechanism", "phi", "cause_purview", "cause_state", "cause_phi", "effect_purview", "effect_state", "effect_phi"]
+    )
+
+    if csv_name:
+        df.to_csv(csv_name)
+    return df
+
+
+def sumarize_sia(sias):
+    ces_list = [
+        (
+            sum(sia.phi_structure.distinctions.phis)
+            + sum([rel.phi for rel in sia.phi_structure.relations]),
+            sia.phi,
+            sum(
+                [
+                    sum([len(d.cause.purview), len(d.effect.purview)])
+                    for d in sia.phi_structure.distinctions
+                ]
+            ),
+            len(sia.phi_structure.distinctions),
+            sum(sia.phi_structure.distinctions.phis),
+            len(sia.phi_structure.relations),
+            sum([rel.phi for rel in sia.phi_structure.relations]),
+            len(
+                [d for d in sia.phi_structure.distinctions if len(d.cause.purview) == 1]
+            ),
+            len(
+                [
+                    d
+                    for d in sia.phi_structure.distinctions
+                    if len(d.effect.purview) == 1
+                ]
+            ),
+            len(
+                [d for d in sia.phi_structure.distinctions if len(d.cause.purview) == 2]
+            ),
+            len(
+                [
+                    d
+                    for d in sia.phi_structure.distinctions
+                    if len(d.effect.purview) == 2
+                ]
+            ),
+            len(
+                [d for d in sia.phi_structure.distinctions if len(d.cause.purview) == 3]
+            ),
+            len(
+                [
+                    d
+                    for d in sia.phi_structure.distinctions
+                    if len(d.effect.purview) == 3
+                ]
+            ),
+            len(
+                [d for d in sia.phi_structure.distinctions if len(d.cause.purview) == 4]
+            ),
+            len(
+                [
+                    d
+                    for d in sia.phi_structure.distinctions
+                    if len(d.effect.purview) == 4
+                ]
+            ),
+        )
+        for sia in sias
+    ]
+    df = pd.DataFrame(
+        ces_list,
+        columns=[
+            "existence",
+            "irreducibility",
+            "total_purview_length",
+            "n_distinctions",
+            "distinction_phi",
+            "n_relations",
+            "relation_phi",
+            "C: O=1",
+            "E: O=1",
+            "C: O=2",
+            "E: O=2",
+            "C: O=3",
+            "E: O=3",
+            "C: O=4",
+            "E: O=4",
+        ],
+    )
+
+    return df.sort_values(by="existence", ascending=False)
+
+
+
 def chunk_iterable(iterable, size):
     it = iter(iterable)
     while True:
