@@ -22,8 +22,8 @@ from scipy.special import comb
 import math
 from pyphi.models.subsystem import FlatCauseEffectStructure
 
-CAUSE = pyphi.Direction(0)
-EFFECT = pyphi.Direction(1)
+CAUSE = pyphi.Direction.CAUSE
+EFFECT = pyphi.Direction.EFFECT
 
 
 def flatten(iterable):
@@ -241,7 +241,7 @@ def plot_ces(
     fig=None,
     matteo_edge_color=True,
 ):
-    if not isinstance(FlatCauseEffectStructure, ces):
+    if not isinstance(ces, FlatCauseEffectStructure):
         raise ValueError(f"ces must be a FlatCauseEffectStructure; got {type(ces)}")
 
     # Initialize figure
