@@ -2,9 +2,11 @@ import pyphi
 import toolz
 from pyphi.models.subsystem import FlatCauseEffectStructure as sep
 from tqdm.auto import tqdm
-
+import itertools
+from visualize_pyphi import compute
 
 directions = [pyphi.Direction.CAUSE, pyphi.Direction.EFFECT]
+C, E = directions
 
 
 def get_all_miws(subsystem):
@@ -318,7 +320,7 @@ def fill_slots_reflexive(subsystem):
         ):
             remaining_mices.append(m)
 
-    remaining_ces = CES_from_bag_of_mices(make_bag(remaining_mices))
+    remaining_ces = compute.CES_from_bag_of_mices(make_bag(remaining_mices))
 
     final_ces = compute.get_linked_ces(
         list(reflexive_sep) + list(remaining_ces), subsystem

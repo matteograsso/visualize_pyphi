@@ -1,3 +1,4 @@
+from this import d
 import pandas as pd
 import string
 import itertools
@@ -6,7 +7,12 @@ from joblib import Parallel, delayed
 import pickle
 from tqdm.auto import tqdm
 import ray
-
+import glob
+import toolz
+import numpy as np
+from visualize_pyphi import network_generator
+from pyphi.models.subsystem import FlatCauseEffectStructure as sep
+import matplotlib.pyplot as plt
 from IPython.display import Audio, display
 
 
@@ -65,6 +71,39 @@ def sepces2df(sepces, subsystem, csv_name=None):
 
     if csv_name:
         df.to_csv(csv_name)
+    return df
+
+
+def ces2df(ces, subsystem):
+    s = subsystem
+    ces_list = [
+        (
+            strp(i2n(d.mechanism, s)),
+            strp(d.mechanism_state),
+            strp(i2n(d.cause_purview, s)),
+            strp(d.cause.specified_state),
+            d.cause.phi,
+            strp(i2n(d.effect_purview, s)),
+            strp(d.effect.specified_state),
+            d.effect.phi,
+        )
+        for d in ces
+    ]
+
+    df = pd.DataFrame(
+        ces_list,
+        columns=[
+            "mechanism",
+            "state",
+            "cause",
+            "state",
+            "phi",
+            "effect",
+            "state",
+            "phi",
+        ],
+    )
+
     return df
 
 
@@ -155,3 +194,66 @@ def parallcompute_distinction(subsystem, mechanism):
     effect = max(effects)
 
     return pyphi.models.Concept(mechanism, cause, effect, subsystem)
+
+
+def decompress_relations(subsystem, ces, pickles_path):
+    pickles = sorted(sorted(glob.glob(pickles_path)), key=len)
+    pickles = [loadpkl(p) for p in tqdm(pickles)]
+    indirect_relations = list(toolz.concat(pickles))
+    return [
+        pyphi.relations.Relation.from_indirect_json(subsystem, sep(ces), r)
+        for r in tqdm(indirect_relations)
+    ]
+
+
+def compute_relations_by_k(
+    subsystem,
+    ces,
+    filepath_and_name,
+    ks=None,
+    missing_ks_only=True,
+    batch_size=10000,
+    verbose=5,
+    n_jobs=160,
+):
+    relations_pickles = sorted(
+        sorted(glob.glob(f"{filepath_and_name}_krels_*.pkl")), key=len
+    )
+    if missing_ks_only:
+        missing_ks = [
+            k
+            for k in range(2, len(sep(ces)) + 1)
+            if f"{filepath_and_name}_krels_{k}.pkl" not in relations_pickles
+        ]
+    for k in tqdm(missing_ks):
+        print(f"Computing k={k}...")
+        relations = list(
+            pyphi.relations.relations(
+                subsystem,
+                sep(ces),
+                min_degree=k,
+                max_degree=k,
+                parallel=True,
+                parallel_kwargs=dict(
+                    batch_size=batch_size, verbose=verbose, n_jobs=n_jobs
+                ),
+            )
+        )
+        compressed_relations = [r.to_indirect_json(sep(ces)) for r in relations]
+        pklthis(compressed_relations, f"{filepath_and_name}_krels_{k}.pkl")
+    print("Success!")
+
+
+def plotLogFunc(l, k, x0, start=None, stop=None, num=101, title=None):
+    if start is None:
+        start = x0 - 1
+    if stop is None:
+        stop = x0 + 1
+    fig, ax = plt.subplots(1, 1)
+    x = np.linspace(start, stop, num)
+    y = network_generator.LogFunc(x, l, k, x0)
+    fig.patch.set_facecolor("white")
+    plt.ylabel("p")
+    plt.xlabel("input")
+    plt.suptitle(title)
+    return ax.plot(x, y)

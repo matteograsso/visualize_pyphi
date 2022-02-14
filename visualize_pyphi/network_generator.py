@@ -87,7 +87,7 @@ def save_network(network, network_name=None):
 
 # Logistic function
 def LogFunc(x, l, k, x0):
-    y = 1 / (l + np.e ** (-k * (x - x0)))
+    y = l / (l + np.e ** (-k * (x - x0)))
     return y
 
 
@@ -204,4 +204,3 @@ def get_net(
         save_network(network, network_name)
 
     return network
-
