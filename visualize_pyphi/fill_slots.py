@@ -1,13 +1,27 @@
 import pyphi
-import toolz
 from pyphi.models.subsystem import FlatCauseEffectStructure as sep
+from pyphi.models.subsystem import CauseEffectStructure as CES
+from pyphi.big_phi import all_nonconflicting_distinction_sets as d_sets
+
+from visualize_pyphi import compute
+
+import toolz
+import random
+import numpy as np
+
 from tqdm.auto import tqdm
 import itertools
 from visualize_pyphi import compute
 
 directions = [pyphi.Direction.CAUSE, pyphi.Direction.EFFECT]
 C, E = directions
+from itertools import product
 
+
+
+directions = [pyphi.Direction.CAUSE, pyphi.Direction.EFFECT]
+CAUSE = pyphi.Direction.CAUSE
+EFFECT = pyphi.Direction.EFFECT
 
 def get_all_miws(subsystem):
     pset = list(pyphi.utils.powerset(subsystem.node_indices, nonempty=True))
@@ -346,3 +360,412 @@ def count_purview_element_states(mices, subsystem):
         ]
         for node in subsystem.node_indices
     ]
+
+
+
+### ----- Random search algorithm
+
+def get_candidate_distinctions(bag_of_mices, subsystem):
+
+    return [
+        [
+            pyphi.models.mechanism.Concept(
+                mech,
+                bag_of_mices[mech][CAUSE][cause],
+                bag_of_mices[mech][EFFECT][effect],
+                subsystem,
+            )
+            for cause, effect in product(
+                *[bag_of_mices[mech][CAUSE], bag_of_mices[mech][EFFECT]]
+            )
+        ]
+        for mech in bag_of_mices.keys()
+    ]
+
+
+def large_purview_candidate_distinction_set(candidate_distinctions):
+    distinctions = []
+    for candidates in candidate_distinctions:
+        summed_purview_length = [
+            sum([len(d.cause.purview), len(d.effect.purview)]) for d in candidates
+        ]
+        # pick a distinction that has maximally large purviews
+        distinctions.append(
+            candidates[
+                random.choice(
+                    [
+                        i
+                        for i, x in enumerate(summed_purview_length)
+                        if x == max(summed_purview_length)
+                    ]
+                )
+            ]
+        )
+    return distinctions
+
+
+def swap_distinctions(subsystem, distinctions, candidates, n):
+
+    # swap out n distinctions randomly
+    to_swap = random.sample(range(len(distinctions)), n)
+    new_distinctions = [
+        distinction if not i in to_swap else random.choice(candidates[i])
+        for i, distinction in enumerate(distinctions)
+    ]
+
+    return CES(new_distinctions, subsystem)
+
+
+def minimize_conflicts(
+    subsystem,
+    candidate_distinctions,
+    bag_of_mices,
+    distinctions_to_swap=3,
+    max_conflicts_accepted=100,
+    convergence=100,
+    max_attempts=10,
+):
+
+    n_conflicts = np.inf
+    attempts = 0
+    while n_conflicts > max_conflicts_accepted and attempts < max_attempts:
+        # intialize CES with distinctions with as large purviews as possible
+        candidate_ces = CES(
+            large_purview_candidate_distinction_set(candidate_distinctions)
+        )
+
+        # intial conflicts
+        n_conflicts = len(list(d_sets(candidate_ces)))
+
+        # iterate, swap out distinctions, accept swap if conflicts fall
+        stuck = 0
+        while stuck < convergence:
+            new_ces = swap_distinctions(
+                subsystem,
+                candidate_ces,
+                candidate_distinctions,
+                random.choice(range(distinctions_to_swap)),
+            )
+            new_conflicts = len(list(d_sets(new_ces)))
+
+            if new_conflicts < n_conflicts:
+                candidate_ces = new_ces
+                n_conflicts = new_conflicts
+                stuck = 0
+
+            else:
+                stuck += 1
+
+    # swapping purviews and mechanisms and picking the one that maximizes um of sum of small_phi for distinctions
+    #swapped = swap_purviews(subsystem,candidate_ces,bag_of_mices)
+    #mechanism_swapped = list(set([swap_mechanisms(subsystem, ces, bag_of_mices) for ces in swapped]))
+    #candidate_ces = max(mechanism_swapped,key=lambda ces: estimate_congruence(ces, subsystem))
+    candidate_ces.subsystem = subsystem
+    return candidate_ces
+
+
+def get_candidate_CESs(
+    subsystem,
+    candidate_distinctions,
+    bag_of_mices,
+    distinctions_to_swap=5,
+    max_conflicts_accepted=100,
+    convergence=100,
+    runs=100,
+):
+    candidates = [
+        minimize_conflicts(
+            subsystem,
+            candidate_distinctions,
+            bag_of_mices,
+            distinctions_to_swap=distinctions_to_swap,
+            max_conflicts_accepted=max_conflicts_accepted,
+            convergence=convergence,
+        )
+        for i in tqdm(
+            range(runs), desc="finding minimally conflicting candidate distinction sets"
+        )
+    ]
+    print('swapping purviews and mechanisms')
+    p_swapped = [
+        swap_purviews(
+            subsystem,
+            candidate,
+            bag_of_mices,
+        )
+        for candidate in candidates
+    ]
+    m_swapped = [
+        swap_mechanisms(
+            subsystem,
+            ces,
+            bag_of_mices,
+        )
+        for cess in p_swapped
+        for ces in cess
+    ]
+
+    cess = []
+    for ces in m_swapped:
+        ces.subsystem = subsystem
+        cess.append(ces)
+    return cess
+
+
+def get_candidate_structures(candidate_cess, subsystem, max_degree=3, max_cess=10):
+
+    structures = list(
+        set(
+            [
+                distinctions
+                for all_distinctions in candidate_cess
+                for distinctions in list(d_sets(all_distinctions))
+            ]
+        )
+    )
+
+    max_len = max([len(ces) for ces in structures])
+    max_len_cess = list(filter(lambda ces: len(ces) == max_len, structures))
+
+    subsystem.clear_caches()
+    return [
+        pyphi.big_phi.PhiStructure(
+            ces,
+            pyphi.relations.relations(
+                    subsystem, ces, max_degree=max_degree, progress=False
+                ),
+        )
+        for ces in tqdm(random.sample(max_len_cess,10), desc="Computing Phi structures")
+    ]
+
+
+def get_specific_structure(PhiStructures):
+
+    info = [
+        phi_structure.system_intrinsic_information()
+        for phi_structure in tqdm(PhiStructures)
+    ]
+
+    return PhiStructures[info.index(max(info))]
+
+
+def get_purview_specifiers(bag_of_mices):
+    specifiers = dict()
+    for mech, directions in bag_of_mices.items():
+        for direction, mices in directions.items():
+            for purview, mice in mices.items():
+                if (purview, direction) in specifiers.keys():
+                    specifiers[(purview, direction)].append(mech)
+                else:
+                    specifiers[(purview, direction)] = [mech]
+    return specifiers
+
+def swap_purviews(subsystem, distinctions, bag_of_mices, shuffles=100):
+
+    # flatten the ces to run through every mice independently
+    flat_ces = [mice for mice in sep(distinctions)]
+    mechanisms = set([m.mechanism for m in flat_ces])
+
+    # get all the mechanisms that specify every purvie-direction
+    specifiers = get_purview_specifiers(bag_of_mices)
+
+    # run the swapping algorithme for "shuffles" number of times, to avoid ordering issues
+    candidate_sets = []
+    for i in range(shuffles):
+
+        # shuffle the list of mices, to swap in different orders each time
+        random.shuffle(flat_ces)
+
+        # define lists that will keep track of distinctions, mechanisms-directions and purview-directions that are specified
+        distinctions = []
+        taken_mechanism = []
+        taken_purview = []
+
+        # loop through every mice in the ces
+        for mice in flat_ces:
+
+            # chcek that its mechanism-direction and purview-direction is not already picked/swapped
+            if (
+                not (mice.mechanism, mice.direction) in taken_mechanism
+                and not (mice.purview, mice.direction) in taken_purview
+            ):
+                # finding which other mechanisms can specify the purview-direction specified by the current mice
+                candidate_specifiers = []
+                for potential_candidate in specifiers[(mice.purview, mice.direction)]:
+
+                    # picking out the mice that would potentially swap in
+                    candidate_mice = bag_of_mices[potential_candidate][mice.direction][
+                        mice.purview
+                    ]
+
+                    # given another candidate specifier, check that it is valid for swapping:
+                    # the candidate mechanism is actually a mechanism in the orignal CES
+                    # the candidate mechanism is not the same as the original mechanism
+                    # the mice mechanism specifies the purvie the candidate originally specified
+                    # the candidate mechanism-direction must not already have been taken
+                    # the candidate phi must be higher than the original mice for both swaps
+                    # the purview-direction specified by the candidate originally must not already be taken
+                    if (
+                        candidate_mice.mechanism in mechanisms
+                        and not mice.mechanism == candidate_mice.mechanism
+                        and not (candidate_mice.mechanism, candidate_mice.direction)
+                        in taken_mechanism
+                        #and candidate_mice.phi > mice.phi
+                    ):
+
+                        # finding the second mice that would be swapped
+                        orig_mice = [
+                            m
+                            for m in flat_ces
+                            if m.mechanism == candidate_mice.mechanism
+                            and m.direction == candidate_mice.direction
+                        ][0]
+
+                        # check if the mice.mechanism specifies the caandidate mechanism's orignal purview
+                        if mice.mechanism in specifiers[(orig_mice.purview, orig_mice.direction)]:
+                            new_mice = bag_of_mices[mice.mechanism][
+                                candidate_mice.direction
+                            ][orig_mice.purview]
+                            if (
+                                not (
+                                    new_mice.purview,
+                                    new_mice.direction,
+                                )
+                                in taken_purview
+                                #and new_mice.phi > orig_mice.phi
+                            ):
+                                candidate_specifiers.append(candidate_mice)
+
+                if len(candidate_specifiers) > 0:
+                    swapper = random.choice(candidate_specifiers)
+                    swapped = [
+                        m
+                        for m in flat_ces
+                        if m.mechanism == swapper.mechanism
+                        and m.direction == swapper.direction
+                    ][0]
+                    taken_mechanism.append((swapper.mechanism, swapper.direction))
+                    taken_purview.append((swapper.purview, swapper.direction))
+                    distinctions.append(swapper)
+
+                    new_mice = bag_of_mices[mice.mechanism][
+                                mice.direction
+                            ][swapped.purview]
+                    taken_mechanism.append((new_mice.mechanism, new_mice.direction))
+                    taken_purview.append((new_mice.purview, new_mice.direction))
+                    distinctions.append(new_mice)
+
+                else:
+                    taken_mechanism.append((mice.mechanism, mice.direction))
+                    taken_purview.append((mice.purview, mice.direction))
+                    distinctions.append(mice)
+
+
+        final_ces = compute.get_linked_ces(distinctions, subsystem)
+        final_ces.subsystem = subsystem
+        candidate_sets.append(final_ces)
+
+    return candidate_sets
+
+
+def swap_mechanisms(subsystem, distinctions, bag_of_mices):
+
+    missing_mechanisms = list(
+        set(bag_of_mices.keys()) - set([d.mechanism for d in distinctions])
+    )
+
+    new_distinctions = []
+    for distinction in distinctions:
+        cause_purview = distinction.cause.purview
+        effect_purview = distinction.effect.purview
+
+        existing_new_mechanisms = [d.mechanism for d in new_distinctions]
+
+        potential_new_distinctions = []
+        for mech, directions in bag_of_mices.items():
+            if (
+                mech in missing_mechanisms
+                and mech not in existing_new_mechanisms
+                and cause_purview in directions[distinction.cause.direction].keys()
+                and effect_purview in directions[distinction.effect.direction].keys()
+                and min(
+                    [
+                        directions[distinction.cause.direction][cause_purview].phi,
+                        directions[distinction.effect.direction][effect_purview].phi,
+                    ]
+                )
+                > distinction.phi
+            ):
+                potential_new_distinctions.append(
+                    pyphi.models.mechanism.Concept(
+                        mech,
+                        directions[distinction.cause.direction][cause_purview],
+                        directions[distinction.effect.direction][effect_purview],
+                        subsystem,
+                    )
+                )
+        if len(potential_new_distinctions) > 0:
+            swapped = random.choice(potential_new_distinctions)
+            new_distinctions.append(swapped)
+            missing_mechanisms.pop(missing_mechanisms.index(swapped.mechanism))
+            missing_mechanisms.append(distinction.mechanism)
+        else:
+            new_distinctions.append(distinction)
+
+    return CES(new_distinctions)
+
+def random_search_for_sia(
+    subsystem,
+    mechanisms=None,
+    purviews=None,
+    bag_of_mices=None,
+    candidate_purviews='miw',
+    max_conflicts_accepted=15,
+    distinctions_to_swap=10,
+    convergence=100,
+    runs=100,
+    max_degree=3,
+):
+    mechanisms = list(pyphi.utils.powerset(subsystem.node_indices,nonempty=True)) if mechanisms==None else mechanisms
+    purviews = list(pyphi.utils.powerset(subsystem.node_indices,nonempty=True)) if purviews==None else purviews
+    bag_of_mices = get_bag_of_mices(subsystem,mechanisms,purviews,candidate=candidate_purviews) if bag_of_mices==None else bag_of_mices
+
+    candidate_distinctions = get_candidate_distinctions(bag_of_mices, subsystem)
+    candidate_cess = get_candidate_CESs(
+        subsystem,
+        candidate_distinctions,
+        bag_of_mices,
+        distinctions_to_swap=distinctions_to_swap,
+        max_conflicts_accepted=max_conflicts_accepted,
+        convergence=convergence,
+        runs=runs,
+    )
+    candidate_structures = get_candidate_structures(
+        candidate_cess, subsystem, max_degree=max_degree
+    )
+    specific_structure = get_specific_structure(candidate_structures)
+    return pyphi.big_phi.sia(
+        subsystem, specific_structure.distinctions, specific_structure.relations
+    )
+
+def count_purview_element_states_in_ces(CES, subsystem):
+    #Returns a list containing the number of purview elements in each state
+    #Example output: [[# node1 OFF, # node1 ON], [# node2 OFF, # node2 ON], ...]
+    return [
+        [
+            len(
+                [
+                    mice
+                    for distinction in CES
+                    for mice in [distinction.cause,distinction.effect]
+                    if node in mice.purview
+                    and mice.specified_state[0][mice.purview.index(node)] == state
+                ]
+            )
+            for state in [0, 1]
+        ]
+        for node in subsystem.node_indices
+    ]
+
+def estimate_congruence(CES, subsystem):
+    return sum([state for purview in count_purview_element_states_in_ces(CES, subsystem) for state in purview])
