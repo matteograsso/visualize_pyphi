@@ -1,4 +1,3 @@
-from this import d
 import pandas as pd
 import string
 import itertools
@@ -92,6 +91,42 @@ def ces2df(ces, subsystem):
 
     df = pd.DataFrame(
         ces_list,
+        index=[n for n in range(1, len(ces_list) + 1)],
+        columns=[
+            "mechanism",
+            "state",
+            "cause",
+            "state",
+            "phi",
+            "effect",
+            "state",
+            "phi",
+        ],
+    )
+
+    return df
+
+
+def ces2df_supertexts(ces, subsystem):
+    s = subsystem
+    ces_list = [
+        (
+            strp(i2n(d.mechanism, s)),
+            strp(d.mechanism_state),
+            strp(i2n(d.cause_purview, s)),
+            strp(d.cause.specified_state),
+            d.cause.phi,
+            strp(i2n(d.effect_purview, s)),
+            strp(d.effect.specified_state),
+            d.effect.phi,
+        )
+        for d in ces
+    ]
+    ces_list = ces_list + [None]
+
+    df = pd.DataFrame(
+        ces_list,
+        index=[n for n in range(1, len(ces_list) + 1)],
         columns=[
             "mechanism",
             "state",
