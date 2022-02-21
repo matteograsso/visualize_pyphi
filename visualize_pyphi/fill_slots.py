@@ -823,12 +823,12 @@ def get_num_potential_relations(n):
     return n * (2 ** 2 ** n)
 
 
-def sample_relations(subsystem, ces, sample_size=10):
+def sample_relations(subsystem, ces, sample_size=10, print_progress=False):
     degree = (
         max([p[0] for p in count_purview_element_states_in_ces(ces, subsystem)]) // 2
     )
-
-    print(f"Listing non-empty {degree}-degree overlaps...")
+    if print_progress:
+        print(f"Listing non-empty {degree}-degree overlaps...")
     potential_relata = list(
         pyphi.relations.potential_relata(
             subsystem, sep(ces), min_degree=degree, max_degree=degree
@@ -836,11 +836,13 @@ def sample_relations(subsystem, ces, sample_size=10):
     )
     keep_sampling = True
     sample_n = 0
-    print("Sampling...")
+    if print_progress:
+        print("Sampling...")
 
     while keep_sampling:
         sample_n += 1
-        print(sample_n)
+        if print_progress:
+            print(sample_n)
         sample_relata = list(
             toolz.concat(
                 [random.sample(potential_relata, 1) for n in range(sample_size)]
@@ -938,6 +940,42 @@ def get_keikoreza_bigphi(
     )
 
     return selectivity * informativeness
+
+
+def compute_possible_number_of_relations(subsystem):
+    return len(subsystem) * (2 ** 2 ** len(subsystem))
+
+
+def compute_selectivity(subsystem, relations):
+    phi_sum = sum([r.phi for r in relations])
+    possible_rels_n = compute_possible_number_of_relations(subsystem)
+    return phi_sum / possible_rels_n
+
+
+def compute_existence(subsystem, ces, relations, selectivity=None):
+    if not selectivity:
+        if not relations:
+            relations = pyphi.relations.relations(subsystem, ces)
+        selectivity = compute_selectivity(subsystem, relations)
+    phi_sum = sum([r.phi for r in relations])
+    possible_rels_n = compute_possible_number_of_relations(subsystem)
+    return selectivity * phi_sum
+
+
+def estimate_existence(subsystem, ces):
+    purview_counts = [p[0] for p in count_purview_element_states_in_ces(ces, subsystem)]
+    degree = max(purview_counts)
+    avg_phi = sample_relations(subsystem, ces)
+    existing_rels_num = estimate_existing_relations_number(subsystem, ces)
+    sum_phi = avg_phi * existing_rels_num
+    all_rels_num = compute_possible_number_of_relations(subsystem)
+    selectivity = sum_phi / all_rels_num
+    return selectivity * sum_phi
+
+
+def estimate_existing_relations_number(subsystem, ces):
+    purview_counts = [p[0] for p in count_purview_element_states_in_ces(ces, subsystem)]
+    return sum([2 ** n for n in purview_counts])
 
 
 def resolve_conflicts_biggest_highest(subsystem, ces):
