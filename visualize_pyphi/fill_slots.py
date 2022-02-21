@@ -1,7 +1,11 @@
 import pyphi
 from pyphi.models.subsystem import FlatCauseEffectStructure as sep
 from pyphi.models.subsystem import CauseEffectStructure as CES
-from pyphi.big_phi import all_nonconflicting_distinction_sets as d_sets
+from pyphi.big_phi import (
+    all_nonconflicting_distinction_sets as d_sets,
+    informativeness,
+    selectivity,
+)
 
 from visualize_pyphi import compute
 
@@ -803,6 +807,137 @@ def get_bigphi_supertext_approximation(subsystem, purview_element_count):
     num = sum(2 ** purview_element_count[n] for n in range(n))
     #     print(num)
     return (num / (n * 2 ** 2 ** n)) * 2 ** min(purview_element_count)
+
+
+def get_existence_approximation(subsystem, ces):
+    # For now this assumes all purvs are in the same state, only pass purview_element_count as a list of ints (one per node)
+    purview_element_count = count_purview_element_states_in_ces(ces, subsystem)
+    purview_element_count = [p[0] for p in purview_element_count]
+    n = subsystem.size
+    num = sum(2 ** purview_element_count[n] for n in range(n))
+    #     print(num)
+    return num / (n * 2 ** 2 ** n)
+
+
+def get_num_potential_relations(n):
+    return n * (2 ** 2 ** n)
+
+
+def sample_relations(subsystem, ces, sample_size=10):
+    degree = (
+        max([p[0] for p in count_purview_element_states_in_ces(ces, subsystem)]) // 2
+    )
+
+    print(f"Listing non-empty {degree}-degree overlaps...")
+    potential_relata = list(
+        pyphi.relations.potential_relata(
+            subsystem, sep(ces), min_degree=degree, max_degree=degree
+        )
+    )
+    keep_sampling = True
+    sample_n = 0
+    print("Sampling...")
+
+    while keep_sampling:
+        sample_n += 1
+        print(sample_n)
+        sample_relata = list(
+            toolz.concat(
+                [random.sample(potential_relata, 1) for n in range(sample_size)]
+            )
+        )
+
+        relations = [pyphi.relations.relation(r) for r in sample_relata]
+        rphis = [r.phi for r in relations]
+
+        if min(rphis) > 0:
+            keep_sampling = False
+
+        avg_phi = sum(r.phi for r in relations) / len(relations)
+    return avg_phi
+
+
+def get_keikoreza_bigphi(
+    subsystem,
+    ces,
+    relation_sample_size=500,
+    compute_real_rphi_avg=False,
+    avg_phi=None,
+    degrees=None,
+):
+    # For now this assumes all purvs are in the same state, only pass purview_element_count as a list of ints (one per node)
+    n = subsystem.size
+    purview_element_count = count_purview_element_states_in_ces(ces, subsystem)
+    purview_element_count = [p[0] for p in purview_element_count]
+    min_purv_count = purview_element_count.index(min(purview_element_count))
+
+    if not avg_phi:
+        if compute_real_rphi_avg:
+            relations = list(pyphi.relations.all_relations(subsystem, ces))
+            possible_rels = len(subsystem) * 2 ** 2 ** len(subsystem)
+            avg_phi = sum(r.phi for r in relations) / possible_rels
+        else:
+            # CHECK: should random sample start from degree 2 or try 1 rels?
+            if not degrees:
+                degrees = [
+                    random.randint(2, len(sep(ces)))
+                    for s in range(relation_sample_size)
+                ]
+            else:
+                degrees = list(
+                    toolz.concat(
+                        [random.sample(degrees, 1) for s in range(relation_sample_size)]
+                    )
+                )
+            samples = [random.sample(sep(ces), d) for d in degrees]
+            sample_relata = [
+                pyphi.relations.Relata(subsystem, sample) for sample in samples
+            ]
+            # print(sample_relata)
+
+            relations = [pyphi.relations.relation(r) for r in sample_relata]
+            avg_phi = sum(r.phi for r in relations) / len(relations)
+    print(avg_phi)
+
+    least_appearing_purview_element = tuple([subsystem.node_indices[min_purv_count]])
+    partitions = list(
+        pyphi.partition.system_temporal_directed_bipartitions_cut_one(
+            subsystem.node_indices
+        )
+    )
+    least_appearing_element_partitions = [
+        p
+        for p in partitions
+        if least_appearing_purview_element == p.from_nodes
+        or least_appearing_purview_element == p.to_nodes
+    ]
+    partitioned_cess = [
+        [c for c in ces if c in pyphi.big_phi.unaffected_distinctions(ces, p)]
+        for p in least_appearing_element_partitions
+    ]
+    untouched_purview_element_counts = [
+        count_purview_element_states_in_ces(ces, subsystem) for ces in partitioned_cess
+    ]
+
+    untouched_purview_element_counts_sums = [
+        sum(toolz.concat(count_purview_element_states_in_ces(ces, subsystem)))
+        for ces in partitioned_cess
+    ]
+
+    untouched_counts_max = untouched_purview_element_counts[
+        untouched_purview_element_counts_sums.index(
+            max(untouched_purview_element_counts_sums)
+        )
+    ]
+    untouched_counts_max = [c[0] for c in untouched_counts_max]
+
+    selectivity = avg_phi
+    informativeness = avg_phi * (
+        sum(2 ** purview_element_count[n] for n in range(n))
+        - sum(2 ** untouched_counts_max[n] for n in range(n))
+    )
+
+    return selectivity * informativeness
 
 
 def resolve_conflicts_biggest_highest(subsystem, ces):
