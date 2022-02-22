@@ -1,4 +1,5 @@
 import pyphi
+from pyphi import big_phi
 from pyphi.models.subsystem import FlatCauseEffectStructure as sep
 from pyphi.models.subsystem import CauseEffectStructure as CES
 from pyphi.big_phi import (
@@ -12,6 +13,7 @@ from visualize_pyphi import compute
 import toolz
 import random
 import numpy as np
+import ray
 
 from tqdm.auto import tqdm
 import itertools
@@ -823,7 +825,7 @@ def get_num_potential_relations(n):
     return n * (2 ** 2 ** n)
 
 
-def sample_relations(subsystem, ces, sample_size=10, print_progress=False):
+def sample_relations_mid_degree(subsystem, ces, sample_size=10, print_progress=False):
     degree = (
         max([p[0] for p in count_purview_element_states_in_ces(ces, subsystem)]) // 2
     )
@@ -856,7 +858,205 @@ def sample_relations(subsystem, ces, sample_size=10, print_progress=False):
             keep_sampling = False
 
         avg_phi = sum(r.phi for r in relations) / len(relations)
+
     return avg_phi
+
+
+def compute_possible_number_of_relations(subsystem):
+    return len(subsystem) * (2 ** 2 ** len(subsystem))
+
+
+def compute_selectivity(subsystem, ces, sum_phi=None, sample_relations=False):
+    if not sum_phi:
+        sum_phi = compute_sum_phi(subsystem, ces, sample_relations)
+    possible_rels_n = compute_possible_number_of_relations(subsystem)
+    return sum_phi / possible_rels_n
+
+
+def compute_sum_phi(subsystem, ces, sample_relations=False):
+    if sample_relations:
+        avg_phi = sample_relations_mid_degree(subsystem, ces)
+        existing_relations_number = estimate_existing_relations_number(subsystem, ces)
+        return avg_phi * existing_relations_number
+    else:
+        relations = pyphi.relations.relations(subsystem, ces, progress=False)
+        return sum([r.phi for r in relations])
+
+
+@ray.remote
+def _compute_sum_phi(subsystem, ces, sample_relations=False):
+    return compute_sum_phi(subsystem, ces, sample_relations)
+
+
+def compute_intrinsic_information(subsystem, ces, sample_relations=False):
+    sum_phi = compute_sum_phi(subsystem, ces, sample_relations)
+    selectivity = compute_selectivity(subsystem, ces, sum_phi)
+    return selectivity * sum_phi
+
+
+def compute_informativeness(subsystem, ces, sum_phi=None, sample_relations=False):
+    if not sum_phi:
+        sum_phi = compute_sum_phi(subsystem, ces, sample_relations)
+    partitions = list(
+        pyphi.partition.system_temporal_directed_bipartitions_cut_one(
+            subsystem.node_indices
+        )
+    )
+    partitioned_cess = [
+        pyphi.big_phi.unaffected_distinctions(ces, p) for p in partitions
+    ]
+    partitioned_cess_sum_phis = [
+        compute_sum_phi(subsystem, cut_ces, sample_relations)
+        for cut_ces in partitioned_cess
+    ]
+    max_partitioned_sum_phis = max(partitioned_cess_sum_phis)
+
+    return sum_phi - max_partitioned_sum_phis
+
+
+def compute_big_phi(subsystem, ces, sum_phi=None, sample_relations=False):
+    selectivity = compute_selectivity(subsystem, ces, sum_phi, sample_relations)
+    informativeness = compute_informativeness(subsystem, ces, sum_phi, sample_relations)
+    return selectivity * informativeness
+
+
+def get_all_nonconflicting_distinction_sets(ces):
+    return list(pyphi.big_phi.all_nonconflicting_distinction_sets(ces))
+
+
+def compute_sia(
+    subsystem,
+    max_irreducible_distinctions=None,
+    sample_relations=False,
+    non_conflicting_distinction_sets=None,
+    verbose=False,
+):
+    if not non_conflicting_distinction_sets:
+        if not max_irreducible_distinctions:
+            max_irreducible_distinctions = pyphi.compute.ces(subsystem)
+        ncd_sets = get_all_nonconflicting_distinction_sets(max_irreducible_distinctions)
+    else:
+        ncd_sets = non_conflicting_distinction_sets
+    if verbose:
+        print(f"{len(ncd_sets)} possible compositional states found. Computing...")
+    tasks = [
+        _compute_sum_phi.remote(subsystem, ces, sample_relations)
+        for ces in tqdm(ncd_sets)
+    ]
+    sum_phis = ray.get(tasks)
+    max_sum_phi = max(sum_phis)
+    max_ces = ncd_sets[sum_phis.index(max_sum_phi)]
+    if verbose:
+        print("Computing Φ...")
+    big_phi = compute_big_phi(subsystem, max_ces, max_sum_phi, sample_relations)
+    if verbose:
+        print(f"Φ = {big_phi}")
+    return big_phi, max_ces
+
+
+def estimate_sum_phi(subsystem, ces, relation_sampling=True):
+    if relation_sampling:
+        avg_phi = sample_relations_mid_degree(subsystem, ces)
+    else:
+        avg_phi = 1
+    existing_rels_num = estimate_existing_relations_number(subsystem, ces)
+    return avg_phi * existing_rels_num
+
+
+def estimate_selectivity(subsystem, ces, sum_phi=None, relation_sampling=True):
+    if not sum_phi:
+        sum_phi = estimate_sum_phi(subsystem, ces, relation_sampling)
+    all_rels_num = compute_possible_number_of_relations(subsystem)
+    return sum_phi / all_rels_num
+
+
+def estimate_intrinsic_information(subsystem, ces, relation_sampling=True):
+    sum_phi = estimate_sum_phi(subsystem, ces, relation_sampling)
+    selectivity = estimate_selectivity(subsystem, ces, sum_phi, relation_sampling)
+    return selectivity * sum_phi
+
+
+def estimate_existing_relations_number(subsystem, ces):
+    purview_counts = [p[0] for p in count_purview_element_states_in_ces(ces, subsystem)]
+    return sum([2 ** n for n in purview_counts])
+
+
+def estimate_informativeness(subsystem, ces, sum_phi=None, relation_sampling=True):
+    if not sum_phi:
+        sum_phi = estimate_sum_phi(subsystem, ces, relation_sampling)
+    partitions = list(
+        pyphi.partition.system_temporal_directed_bipartitions_cut_one(
+            subsystem.node_indices
+        )
+    )
+    partitioned_cess = [
+        pyphi.big_phi.unaffected_distinctions(ces, p) for p in partitions
+    ]
+    partitioned_cess_sum_phis = [
+        estimate_sum_phi(subsystem, ces) for ces in partitioned_cess
+    ]
+    max_partitioned_sum_phis = max(partitioned_cess_sum_phis)
+
+    return sum_phi - max_partitioned_sum_phis
+
+
+def estimate_big_phi(subsystem, ces, sum_phi=None, relation_sampling=True):
+    # print(sum_phi)
+    selectivity = estimate_selectivity(subsystem, ces, sum_phi, relation_sampling)
+    informativeness = estimate_informativeness(
+        subsystem, ces, sum_phi, relation_sampling
+    )
+    return selectivity * informativeness
+
+
+@ray.remote
+def _estimate_sum_phi(subsystem, ces, relation_sampling=True):
+    return estimate_sum_phi(subsystem, ces, relation_sampling=True)
+
+
+def estimate_sia(subsystem, verbose=True, parallel=True):
+
+    if verbose:
+        print("Computing maximally irreducible distinctions...")
+    ces = pyphi.compute.ces(subsystem)
+
+    if verbose:
+        print("Generating all non conflicting distinction sets...")
+    ncd_sets = list(pyphi.big_phi.all_nonconflicting_distinction_sets(ces))
+
+    relation_sampling = True if len(subsystem) < 5 else False
+    if verbose:
+        message = (
+            "Estimating sum of phis (sampling relations)..."
+            if relation_sampling
+            else "Estimating sum of phis (not sampling relations)..."
+        )
+        print(message)
+
+    if parallel:
+        futures = [
+            _estimate_sum_phi.remote(
+                subsystem, ncd_set, relation_sampling=relation_sampling
+            )
+            for ncd_set in tqdm(ncd_sets)
+        ]
+        ncd_sets_sum_phis = ray.get(futures)
+
+    else:
+        ncd_sets_sum_phis = [
+            estimate_sum_phi(subsystem, ncd_set, relation_sampling=relation_sampling)
+            for ncd_set in tqdm(ncd_sets)
+        ]
+
+    # pick compositional state based on existence
+    max_sum_phi = max(ncd_sets_sum_phis)
+    # print(max_sum_phi)
+    max_ncd_set = ncd_sets[ncd_sets_sum_phis.index(max_sum_phi)]
+
+    if verbose:
+        print("Estimating big phi...")
+    phi = estimate_big_phi(subsystem, max_ncd_set, max_sum_phi)
+    return phi
 
 
 def get_keikoreza_bigphi(
@@ -940,42 +1140,6 @@ def get_keikoreza_bigphi(
     )
 
     return selectivity * informativeness
-
-
-def compute_possible_number_of_relations(subsystem):
-    return len(subsystem) * (2 ** 2 ** len(subsystem))
-
-
-def compute_selectivity(subsystem, relations):
-    phi_sum = sum([r.phi for r in relations])
-    possible_rels_n = compute_possible_number_of_relations(subsystem)
-    return phi_sum / possible_rels_n
-
-
-def compute_existence(subsystem, ces, relations, selectivity=None):
-    if not selectivity:
-        if not relations:
-            relations = pyphi.relations.relations(subsystem, ces)
-        selectivity = compute_selectivity(subsystem, relations)
-    phi_sum = sum([r.phi for r in relations])
-    possible_rels_n = compute_possible_number_of_relations(subsystem)
-    return selectivity * phi_sum
-
-
-def estimate_existence(subsystem, ces):
-    purview_counts = [p[0] for p in count_purview_element_states_in_ces(ces, subsystem)]
-    degree = max(purview_counts)
-    avg_phi = sample_relations(subsystem, ces)
-    existing_rels_num = estimate_existing_relations_number(subsystem, ces)
-    sum_phi = avg_phi * existing_rels_num
-    all_rels_num = compute_possible_number_of_relations(subsystem)
-    selectivity = sum_phi / all_rels_num
-    return selectivity * sum_phi
-
-
-def estimate_existing_relations_number(subsystem, ces):
-    purview_counts = [p[0] for p in count_purview_element_states_in_ces(ces, subsystem)]
-    return sum([2 ** n for n in purview_counts])
 
 
 def resolve_conflicts_biggest_highest(subsystem, ces):
