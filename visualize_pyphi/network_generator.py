@@ -149,7 +149,7 @@ def get_net(
     states = list(pyphi.utils.all_states(nodes_n))
     tpm = np.zeros([2 ** nodes_n, nodes_n])
 
-    for s in tqdm_notebook(range(len(states))):
+    for s in range(len(states)):
         state = states[s]
         tpm_line = []
 
@@ -204,3 +204,144 @@ def get_net(
         save_network(network, network_name)
 
     return network
+
+
+def get_toroidal_L_grid_network(
+    n_nodes, determinism_value, self_loop_value, state="all_off", node_labels=None
+):
+    n = n_nodes
+    k = determinism_value
+    s, l = get_toroidal_L_grid_weights(n, self_loop_value)
+
+    if n == 4:
+        weights_matrix = np.array(
+            [
+                [s, l, l, l],  # A
+                [l, s, l, l],  # B
+                [l, l, s, l],  # C
+                [l, l, l, s],  # D
+                # A, B, C, D
+            ]
+        )
+
+    elif n == 5:
+        weights_matrix = np.array(
+            [
+                [s, l, l, l, l],  # A
+                [l, s, l, l, l],  # B
+                [l, l, s, l, l],  # C
+                [l, l, l, s, l],  # D
+                [l, l, l, l, s],  # E
+                # A, B, C, D, E
+            ]
+        )
+
+    if node_labels is None:
+        node_labels = [string.ascii_uppercase[n] for n in range(len(weights_matrix))]
+
+    mech_func = ["l" for n in range(len(weights_matrix))]
+
+    network = get_net(
+        mech_func,
+        weights_matrix,
+        l=1,
+        k=k,
+        x0=0.5,
+        node_labels=node_labels,
+        pickle_network=False,
+    )
+
+    return network
+
+
+# def get_toroidal_grid_network(
+#     n_nodes,
+#     determinism_value,
+#     self_loop_value,
+#     state="all_off",
+#     node_labels=None,
+#     L_weight_distribution=True
+# ):
+#     n = n_nodes
+#     k = determinism_value
+
+#     if L_weight_distribution:
+#         s, l = get_toroidal_L_grid_weights(n, self_loop_value)
+#     elif:
+#         ws = [1 / (u ** g) for u in range(1, n)]
+#         ws = [ws[i] for i in [0, 1, 1, 1]]
+#         ws = [w / sum(ws) for w in ws]
+
+#         s = ws[0]  # self (strong)
+#         h = ws[1]  # high
+#         m = ws[3]  # medium
+#         s, l = get_toroidal_L_grid_weights(n, self_loop_value)
+#     if n == 4:
+#         weights_matrix = np.array(
+#             [
+#                 [s, l, l, l],  # A
+#                 [l, s, l, l],  # B
+#                 [l, l, s, l],  # C
+#                 [l, l, l, s],  # D
+#                 # A, B, C, D
+#             ]
+#         )
+
+#     elif n == 5:
+#         weights_matrix = np.array(
+#             [
+#                 [s, l, l, l, l],  # A
+#                 [l, s, l, l, l],  # B
+#                 [l, l, s, l, l],  # C
+#                 [l, l, l, s, l],  # D
+#                 [l, l, l, l, s],  # E
+#                 # A, B, C, D, E
+#             ]
+#         )
+
+#     if node_labels is None:
+#         node_labels = [string.ascii_uppercase[n] for n in range(len(weights_matrix))]
+
+#     mech_func = ["l" for n in range(len(weights_matrix))]
+
+#     network = get_net(
+#         mech_func,
+#         weights_matrix,
+#         l=1,
+#         k=k,
+#         x0=0.5,
+#         node_labels=node_labels,
+#         pickle_network=False,
+#     )
+
+#     return network
+
+
+def get_toroidal_L_grid_weights(n_nodes, self_loop_value):
+    return [self_loop_value, (1 - self_loop_value) / (n_nodes - 1)]
+
+
+class ToroidalLGrid:
+    def __init__(
+        self,
+        n_nodes,
+        determinism_value,
+        self_loop_value,
+        state="all_off",
+        node_labels=None,
+    ):
+        self.determinism = determinism_value
+        self.self_loop_value = self_loop_value
+        self.weights = get_toroidal_L_grid_weights(n_nodes, self_loop_value) + [
+            get_toroidal_L_grid_weights(n_nodes, self_loop_value)[1]
+            for i in range(n_nodes - 2)
+        ]
+        self.network = get_toroidal_L_grid_network(
+            n_nodes,
+            determinism_value,
+            self_loop_value,
+            state="all_off",
+            node_labels=None,
+        )
+        self.state = (0,) * n_nodes if state == "all_off" else state
+        self.subsystem = pyphi.Subsystem(self.network, self.state)
