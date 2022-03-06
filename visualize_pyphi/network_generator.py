@@ -206,20 +206,47 @@ def get_net(
     return network
 
 
-def get_toroidal_L_grid_network(
-    n_nodes, determinism_value, self_loop_value, state="all_off", node_labels=None
+def get_toroidal_grid_network(
+    n_nodes,
+    determinism_value,
+    weight_distribution,
+    self_loop_value=None,
+    weight_decay_value=None,
+    state="all_off",
+    node_labels=None,
 ):
     n = n_nodes
     k = determinism_value
-    s, l = get_toroidal_L_grid_weights(n, self_loop_value)
 
-    if n == 4:
+    if weight_distribution == "L":
+        s = self_loop_value
+        l = get_toroidal_L_grid_weights(n, s)
+        h = l
+        m = h
+
+    elif weight_distribution == "pareto":
+        s, h, m = get_toroidal_pareto_grid_weights(n, weight_decay_value)
+
+    else:
+        s, h, m = weight_distribution
+
+    if n == 3:
         weights_matrix = np.array(
             [
-                [s, l, l, l],  # A
-                [l, s, l, l],  # B
-                [l, l, s, l],  # C
-                [l, l, l, s],  # D
+                [s, h, h],  # A
+                [h, s, h],  # B
+                [h, h, s],  # C
+                # A, B, C
+            ]
+        )
+
+    elif n == 4:
+        weights_matrix = np.array(
+            [
+                [s, h, m, h],  # A
+                [h, s, h, m],  # B
+                [m, h, s, h],  # C
+                [h, m, h, s],  # D
                 # A, B, C, D
             ]
         )
@@ -227,11 +254,11 @@ def get_toroidal_L_grid_network(
     elif n == 5:
         weights_matrix = np.array(
             [
-                [s, l, l, l, l],  # A
-                [l, s, l, l, l],  # B
-                [l, l, s, l, l],  # C
-                [l, l, l, s, l],  # D
-                [l, l, l, l, s],  # E
+                [s, h, m, m, h],  # A
+                [h, s, h, m, m],  # B
+                [m, h, s, h, m],  # C
+                [m, m, h, s, h],  # D
+                [h, m, m, h, s],  # E
                 # A, B, C, D, E
             ]
         )
@@ -254,94 +281,164 @@ def get_toroidal_L_grid_network(
     return network
 
 
-# def get_toroidal_grid_network(
-#     n_nodes,
-#     determinism_value,
-#     self_loop_value,
-#     state="all_off",
-#     node_labels=None,
-#     L_weight_distribution=True
-# ):
-#     n = n_nodes
-#     k = determinism_value
+def get_BGC_grid_network(
+    n_nodes,
+    determinism_value,
+    weight_distribution,
+    self_loop_value=None,
+    weight_decay_value=None,
+    state="all_off",
+    node_labels=None,
+):
+    u = 7
+    n = n_nodes
+    k = determinism_value
 
-#     if L_weight_distribution:
-#         s, l = get_toroidal_L_grid_weights(n, self_loop_value)
-#     elif:
-#         ws = [1 / (u ** g) for u in range(1, n)]
-#         ws = [ws[i] for i in [0, 1, 1, 1]]
-#         ws = [w / sum(ws) for w in ws]
+    if weight_distribution == "L":
+        s = self_loop_value
+        l = get_toroidal_L_grid_weights(u, s)
+        h = l
+        m = l
+        w = l
 
-#         s = ws[0]  # self (strong)
-#         h = ws[1]  # high
-#         m = ws[3]  # medium
-#         s, l = get_toroidal_L_grid_weights(n, self_loop_value)
-#     if n == 4:
-#         weights_matrix = np.array(
-#             [
-#                 [s, l, l, l],  # A
-#                 [l, s, l, l],  # B
-#                 [l, l, s, l],  # C
-#                 [l, l, l, s],  # D
-#                 # A, B, C, D
-#             ]
-#         )
+    elif weight_distribution == "nearest_neighbor":
+        s = self_loop_value
+        l = (1 - self_loop_value) / 2
+        h = l
+        m = 0
+        w = 0
 
-#     elif n == 5:
-#         weights_matrix = np.array(
-#             [
-#                 [s, l, l, l, l],  # A
-#                 [l, s, l, l, l],  # B
-#                 [l, l, s, l, l],  # C
-#                 [l, l, l, s, l],  # D
-#                 [l, l, l, l, s],  # E
-#                 # A, B, C, D, E
-#             ]
-#         )
+    elif weight_distribution == "pareto":
+        s, h, m, v = get_toroidal_pareto_grid_weights(u, weight_decay_value)
 
-#     if node_labels is None:
-#         node_labels = [string.ascii_uppercase[n] for n in range(len(weights_matrix))]
+    weights_matrix = np.array(
+        [
+            [s, h, m, w, w, m, h],  # A
+            [h, s, h, m, w, w, m],  # B
+            [m, h, s, h, m, w, w],  # C
+            [w, m, h, s, h, m, w],  # D
+            [w, w, m, h, s, h, m],  # E
+            [m, w, w, m, h, s, h],  # F
+            [h, m, w, w, m, h, s],  # G
+            # A, B, C, D, E, F, G
+        ]
+    )
 
-#     mech_func = ["l" for n in range(len(weights_matrix))]
+    if node_labels is None:
+        node_labels = [string.ascii_uppercase[n] for n in range(len(weights_matrix))]
 
-#     network = get_net(
-#         mech_func,
-#         weights_matrix,
-#         l=1,
-#         k=k,
-#         x0=0.5,
-#         node_labels=node_labels,
-#         pickle_network=False,
-#     )
+    mech_func = ["l" for n in range(len(weights_matrix))]
 
-#     return network
+    network = get_net(
+        mech_func,
+        weights_matrix,
+        l=1,
+        k=k,
+        x0=0.5,
+        node_labels=node_labels,
+        pickle_network=False,
+    )
+
+    return network
 
 
 def get_toroidal_L_grid_weights(n_nodes, self_loop_value):
-    return [self_loop_value, (1 - self_loop_value) / (n_nodes - 1)]
+    l = (1 - self_loop_value) / (n_nodes - 1)
+    return l
 
 
-class ToroidalLGrid:
+def get_nearest_neighbor_weights(self_loop_value):
+    l = (1 - self_loop_value) / 2
+    return l
+
+
+def get_pareto_weights(n_nodes, g, normalize=False):
+    weights = [1 / (u ** g) for u in range(1, n_nodes)]
+    if normalize:
+        weights = [w / sum(weights) for w in weights]
+    return weights
+
+
+def get_toroidal_pareto_grid_weights(n_nodes, g):
+    weights = [1 / (u ** g) for u in range(1, n_nodes)]
+    if n_nodes == 3:
+        weights = [weights[i] for i in [0, 1, 1]]
+        weights = [w / sum(weights) for w in weights]
+        s, h = [weights[0], weights[1]]
+        return s, h
+    elif n_nodes == 4:
+        weights = [weights[i] for i in [0, 1, 1, 2]]
+        weights = [w / sum(weights) for w in weights]
+        s, h, m = [weights[0], weights[1], weights[3]]
+        return s, h, m
+    elif n_nodes == 5:
+        weights = [weights[i] for i in [0, 1, 1, 2, 2]]
+        weights = [w / sum(weights) for w in weights]
+        s, h, m = [weights[0], weights[1], weights[3]]
+        return s, h, m
+    elif n_nodes == 7:
+        weights = [weights[i] for i in [0, 1, 1, 2, 2, 3, 3]]
+        weights = [w / sum(weights) for w in weights]
+        s, h, m, w = [weights[0], weights[1], weights[3], weights[4]]
+        return s, h, m, w
+
+
+class ToroidalGrid:
     def __init__(
         self,
         n_nodes,
         determinism_value,
-        self_loop_value,
+        weight_distribution,
+        self_loop_value=None,
+        backgound_conditions=False,
+        weight_decay_value=None,
         state="all_off",
         node_labels=None,
     ):
         self.determinism = determinism_value
         self.self_loop_value = self_loop_value
-        self.weights = get_toroidal_L_grid_weights(n_nodes, self_loop_value) + [
-            get_toroidal_L_grid_weights(n_nodes, self_loop_value)[1]
-            for i in range(n_nodes - 2)
-        ]
-        self.network = get_toroidal_L_grid_network(
-            n_nodes,
-            determinism_value,
-            self_loop_value,
-            state="all_off",
-            node_labels=None,
-        )
-        self.state = (0,) * n_nodes if state == "all_off" else state
-        self.subsystem = pyphi.Subsystem(self.network, self.state)
+
+        if not backgound_conditions:
+            if type(weight_distribution) is tuple:
+                self.weights = weight_distribution
+
+            elif weight_distribution == "L" and self_loop_value:
+                self.weights = get_toroidal_L_grid_weights(n_nodes, self_loop_value)
+
+            elif weight_distribution == "pareto" and weight_decay_value:
+                self.weights = get_toroidal_pareto_grid_weights(
+                    n_nodes, weight_decay_value
+                )
+
+            self.network = get_toroidal_grid_network(
+                n_nodes,
+                determinism_value,
+                weight_distribution,
+                self_loop_value,
+                weight_decay_value,
+                state="all_off",
+                node_labels=None,
+            )
+            self.state = (0,) * n_nodes if state == "all_off" else state
+            self.subsystem = pyphi.Subsystem(self.network, self.state)
+        else:
+
+            self.network = get_BGC_grid_network(
+                n_nodes,
+                determinism_value,
+                weight_distribution,
+                self_loop_value,
+                weight_decay_value,
+                state="all_off",
+                node_labels=None,
+            )
+            if weight_distribution == "L":
+                self.weights = get_toroidal_L_grid_weights(7, self_loop_value)
+            elif weight_distribution == "pareto":
+                self.weights = get_toroidal_pareto_grid_weights(7, weight_decay_value)
+            elif weight_distribution == "nearest_neighbor":
+                self.weights = get_nearest_neighbor_weights(self_loop_value)
+            self.state = (0,) * self.network.size if state == "all_off" else state
+            self.subsystem = pyphi.Subsystem(
+                self.network, self.state, nodes=range(n_nodes)
+            )
