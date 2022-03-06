@@ -73,7 +73,9 @@ def sepces2df(sepces, subsystem, csv_name=None):
     return df
 
 
-def ces2df(ces, subsystem):
+def ces2df(ces, subsystem=None):
+    if subsystem is None:
+        subsystem = ces[0].subsystem
     s = subsystem
     ces_list = [
         (
@@ -292,3 +294,8 @@ def plotLogFunc(l, k, x0, start=None, stop=None, num=101, title=None):
     plt.xlabel("input")
     plt.suptitle(title)
     return ax.plot(x, y)
+
+
+@ray.remote
+def compute_relations(subsystem, ces):
+    return pyphi.relations.relations(subsystem, ces)

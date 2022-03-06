@@ -940,8 +940,7 @@ def compute_sia(
     if verbose:
         print(f"{len(ncd_sets)} possible compositional states found. Computing...")
     tasks = [
-        _compute_sum_phi.remote(subsystem, ces, sample_relations)
-        for ces in tqdm(ncd_sets)
+        _compute_sum_phi.remote(subsystem, ces, sample_relations) for ces in ncd_sets
     ]
     sum_phis = ray.get(tasks)
     max_sum_phi = max(sum_phis)
@@ -1038,14 +1037,14 @@ def estimate_sia(subsystem, verbose=True, parallel=True):
             _estimate_sum_phi.remote(
                 subsystem, ncd_set, relation_sampling=relation_sampling
             )
-            for ncd_set in tqdm(ncd_sets)
+            for ncd_set in ncd_sets
         ]
         ncd_sets_sum_phis = ray.get(futures)
 
     else:
         ncd_sets_sum_phis = [
             estimate_sum_phi(subsystem, ncd_set, relation_sampling=relation_sampling)
-            for ncd_set in tqdm(ncd_sets)
+            for ncd_set in ncd_sets
         ]
 
     # pick compositional state based on existence
