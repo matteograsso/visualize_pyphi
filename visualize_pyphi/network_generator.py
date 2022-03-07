@@ -384,6 +384,7 @@ def get_toroidal_pareto_grid_weights(n_nodes, g):
 
 
 class ToroidalGrid:
+    # Fix for NN
     def __init__(
         self,
         n_nodes,
