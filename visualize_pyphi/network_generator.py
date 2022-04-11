@@ -5,11 +5,11 @@ from tqdm import tqdm_notebook
 from pyphi.convert import nodes2indices as n2i
 import scipy.io
 from pathlib import Path
-from tqdm import tqdm_notebook
 import string
 import glob
 from scipy.stats import norm
 from tqdm.auto import tqdm
+import matplotlib.pyplot as plt
 
 pyphi.config.CACHE_REPERTOIRES = False
 
@@ -122,6 +122,7 @@ def get_net(
     node_labels=None,
     network_name=None,
     pickle_network=True,
+    state_domain=[0, 1],
 ):
     """
     Returns a pyphi network (Logistic activation function)
@@ -150,7 +151,10 @@ def get_net(
     tpm = np.zeros([2 ** nodes_n, nodes_n])
 
     for s in range(len(states)):
-        state = states[s]
+        if state_domain == [-1, 1]:
+            state = [2 * v - 1 for v in states[s]]
+        else:
+            state = states[s]
         tpm_line = []
 
         for z in node_indices:
@@ -309,7 +313,7 @@ def get_BGC_grid_network(
         w = 0
 
     elif weight_distribution == "pareto":
-        s, h, m, v = get_toroidal_pareto_grid_weights(u, weight_decay_value)
+        s, h, m, w = get_toroidal_pareto_grid_weights(u, weight_decay_value)
 
     weights_matrix = np.array(
         [
@@ -443,3 +447,44 @@ class ToroidalGrid:
             self.subsystem = pyphi.Subsystem(
                 self.network, self.state, nodes=range(n_nodes)
             )
+
+
+def plotLogFunc(l, k, x0, start=None, stop=None, num=101):
+    if start is None:
+        start = x0 - 1
+    if stop is None:
+        stop = x0 + 1
+    fig, ax = plt.subplots(1, 1)
+    x = np.linspace(start, stop, num)
+    y = LogFunc(x, l, k, x0)
+
+    return ax.plot(x, y)
+
+
+# Map vs grid logistic function
+def MvsGLogFunc(x, th):
+    y = 1 / (1 + np.exp(-x / th))
+    return y
+
+
+def plotGauss(mu, si, start=None, stop=None, num=101):
+    if start is None:
+        start = mu - 1
+    if stop is None:
+        stop = mu + 1
+    fig, ax = plt.subplots(1, 1)
+    x = np.linspace(start, stop, num)
+    y = Gauss(x, mu, si)
+    return ax.plot(x, y)
+
+
+def plotNR(exponent, threshold, start=None, stop=None, num=101):
+    if start is None:
+        start = 0
+    if stop is None:
+        stop = 2
+    fig, ax = plt.subplots(1, 1)
+    x = np.linspace(start, stop, num)
+    y = NR(x, exponent, threshold)
+
+    return ax.plot(x, y)
