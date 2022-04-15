@@ -9,7 +9,7 @@ import ray
 import glob
 import toolz
 import numpy as np
-from visualize_pyphi import network_generator
+from visualize_pyphi import network_generator, visualize_ces
 from pyphi.models.subsystem import FlatCauseEffectStructure as sep
 import matplotlib.pyplot as plt
 from IPython.display import Audio, display
@@ -73,38 +73,69 @@ def sepces2df(sepces, subsystem, csv_name=None):
     return df
 
 
-def ces2df(ces, subsystem=None):
-    if subsystem is None:
-        subsystem = ces[0].subsystem
-    s = subsystem
-    ces_list = [
-        (
-            strp(i2n(d.mechanism, s)),
-            strp(d.mechanism_state),
-            strp(i2n(d.cause_purview, s)),
-            strp(d.cause.specified_state),
-            d.cause.phi,
-            strp(i2n(d.effect_purview, s)),
-            strp(d.effect.specified_state),
-            d.effect.phi,
-        )
-        for d in ces
-    ]
+def ces2df(ces, state_as_lettercase=True):
+    s = ces[0].subsystem
 
-    df = pd.DataFrame(
-        ces_list,
-        index=[n for n in range(1, len(ces_list) + 1)],
-        columns=[
-            "mechanism",
-            "state",
-            "cause",
-            "state",
-            "phi",
-            "effect",
-            "state",
-            "phi",
-        ],
-    )
+    if not state_as_lettercase:
+        ces_list = [
+            (
+                strp(i2n(d.mechanism, s)),
+                strp(d.mechanism_state),
+                strp(i2n(d.cause_purview, s)),
+                strp(d.cause.specified_state),
+                d.cause.phi,
+                strp(i2n(d.effect_purview, s)),
+                strp(d.effect.specified_state),
+                d.effect.phi,
+            )
+            for d in ces
+        ]
+
+        df = pd.DataFrame(
+            ces_list,
+            index=[n for n in range(1, len(ces_list) + 1)],
+            columns=[
+                "mechanism",
+                "state",
+                "cause",
+                "state",
+                "phi",
+                "effect",
+                "state",
+                "phi",
+            ],
+        )
+    else:
+        ces_list = [
+            (
+                lettercase_state(
+                    d.mechanism, node_labels=s.network.node_labels, state=s.state
+                ),
+                lettercase_state(
+                    d.cause_purview,
+                    node_labels=s.node_labels,
+                    state=d.cause.specified_state.tolist()[0],
+                ),
+                lettercase_state(
+                    d.effect_purview,
+                    node_labels=s.node_labels,
+                    state=d.effect.specified_state.tolist()[0],
+                ),
+                d.phi,
+            )
+            for d in ces
+        ]
+
+        df = pd.DataFrame(
+            ces_list,
+            index=[n for n in range(1, len(ces_list) + 1)],
+            columns=[
+                "mechanism",
+                "cause",
+                "effect",
+                "phi",
+            ],
+        )
 
     return df
 
@@ -299,3 +330,27 @@ def plotLogFunc(l, k, x0, start=None, stop=None, num=101, title=None):
 @ray.remote
 def compute_relations(subsystem, ces):
     return pyphi.relations.relations(subsystem, ces)
+
+
+def lettercase_state(node_indices, node_labels=None, state=False):
+
+    node_labels = node_labels.indices2labels(node_indices)
+
+    nl = []
+    # capitalizing labels of mechs that are on
+    if not len(state) == len(node_labels):
+        for n, i in zip(node_labels, node_indices):
+            if state[i] == 0:
+                nl.append(n.lower() + "")
+            else:
+                nl.append(n.upper() + "")
+    else:
+        for s, l in zip(state, node_labels):
+            if s == 0:
+                nl.append(l.lower() + "")
+            else:
+                nl.append(l.upper() + "")
+
+    node_labels = nl
+
+    return "".join(node_labels)
