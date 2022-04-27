@@ -218,6 +218,8 @@ def get_toroidal_grid_network(
     weight_decay_value=None,
     state="all_off",
     node_labels=None,
+    x0=0.5,
+    state_domain=[0, 1],
 ):
     n = n_nodes
     k = determinism_value
@@ -277,9 +279,10 @@ def get_toroidal_grid_network(
         weights_matrix,
         l=1,
         k=k,
-        x0=0.5,
+        x0=x0,
         node_labels=node_labels,
         pickle_network=False,
+        state_domain=state_domain,
     )
 
     return network
@@ -293,6 +296,8 @@ def get_BGC_grid_network(
     weight_decay_value=None,
     state="all_off",
     node_labels=None,
+    x0=0.5,
+    state_domain=[0, 1],
 ):
     u = 7
     n = n_nodes
@@ -338,7 +343,8 @@ def get_BGC_grid_network(
         weights_matrix,
         l=1,
         k=k,
-        x0=0.5,
+        x0=x0,
+        state_domain=state_domain,
         node_labels=node_labels,
         pickle_network=False,
     )
@@ -383,7 +389,7 @@ def get_toroidal_pareto_grid_weights(n_nodes, g):
     elif n_nodes == 7:
         weights = [weights[i] for i in [0, 1, 1, 2, 2, 3, 3]]
         weights = [w / sum(weights) for w in weights]
-        s, h, m, w = [weights[0], weights[1], weights[3], weights[4]]
+        s, h, m, w = [weights[0], weights[1], weights[3], weights[5]]
         return s, h, m, w
 
 
@@ -399,6 +405,8 @@ class ToroidalGrid:
         weight_decay_value=None,
         state="all_off",
         node_labels=None,
+        x0=0.5,
+        state_domain=[0, 1],
     ):
         self.determinism = determinism_value
         self.self_loop_value = self_loop_value
@@ -423,6 +431,8 @@ class ToroidalGrid:
                 weight_decay_value,
                 state="all_off",
                 node_labels=None,
+                x0=x0,
+                state_domain=state_domain,
             )
             self.state = (0,) * n_nodes if state == "all_off" else state
             self.subsystem = pyphi.Subsystem(self.network, self.state)
@@ -436,6 +446,8 @@ class ToroidalGrid:
                 weight_decay_value,
                 state="all_off",
                 node_labels=None,
+                x0=x0,
+                state_domain=state_domain,
             )
             if weight_distribution == "L":
                 self.weights = get_toroidal_L_grid_weights(7, self_loop_value)
