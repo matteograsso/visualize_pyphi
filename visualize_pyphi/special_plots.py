@@ -51,13 +51,15 @@ def plot_effect_of_MIP_new(
 
         cut = sia.cut
         ces = sia.ces
-    
-    if hasattr(ces[0],'direction'):
+
+    if hasattr(ces[0], "direction"):
         ces = compute.get_linked_ces(ces, system)
 
     unaffected_ces = pyphi.big_phi.unaffected_distinctions(ces, cut)
-    unaffected_relations = list(pyphi.big_phi.unaffected_relations(unaffected_ces, relations))
-    
+    unaffected_relations = list(
+        pyphi.big_phi.unaffected_relations(unaffected_ces, relations)
+    )
+
     touched_ces = [mice for mice in sep(ces) if mice not in sep(unaffected_ces)]
     touched_relations = [r for r in relations if r not in unaffected_relations]
 
@@ -112,6 +114,73 @@ def plot_effect_of_MIP_new(
 
     overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
 
+
+def plot_effect_of_MIP_newer(
+    system,
+    ces,
+    relations,
+    unaffected_distinctions,
+    unaffected_relations,
+    figure_name="effect_of_MIP",
+    common_kwargs=dict(),
+    uncommon_kwargs=[dict(), dict(), dict()],
+):
+
+    touched_distinctions = [
+        mice for mice in sep(ces) if mice not in sep(unaffected_distinctions)
+    ]
+    touched_relations = [r for r in relations if r not in unaffected_relations]
+
+    touched_ces_expanded = list(
+        set([mice for relation in relations for mice in relation.relata])
+    )
+
+    cess = [sep(ces), sep(unaffected_distinctions), touched_distinctions]
+    relations = [relations, unaffected_relations, []]
+
+    default_common_kwargs = dict(network_name=figure_name, show_legend=False)
+    default_common_kwargs.update(common_kwargs)
+
+    default_uncommon_kwargs = [
+        dict(
+            surface_colorscale="Blues",
+            surface_opacity=0.3,
+            show_labels=False,
+            show_links=False,
+            show_edges=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+        ),
+        dict(
+            surface_colorscale="Greys",
+            surface_opacity=0.9,
+            show_labels=False,
+            show_chains=False,
+            show_mechanism_base=False,
+            matteo_edge_color=False,
+            show_links=False,
+        ),
+        dict(
+            surface_colorscale="Greys",
+            surface_opacity=0.01,
+            show_edges=False,
+            show_labels=True,
+            show_chains=False,
+            show_mechanism_base=False,
+        ),
+    ]
+    default_uncommon_kwargs = [
+        dict(**default_uncommon_kwarg, **uncommon_kwarg)
+        for default_uncommon_kwarg, uncommon_kwarg in zip(
+            default_uncommon_kwargs, uncommon_kwargs
+        )
+    ]
+
+    nonstandard_kwargs = [
+        dict(**default_common_kwargs, **kwargs) for kwargs in default_uncommon_kwargs
+    ]
+
+    overlaid_ces_plot(system, cess, relations, nonstandard_kwargs)
 
 
 def plot_effect_of_MIP(
