@@ -122,7 +122,6 @@ def get_net(
     node_labels=None,
     network_name=None,
     pickle_network=True,
-    state_domain=[0, 1],
 ):
     """
     Returns a pyphi network (Logistic activation function)
@@ -139,7 +138,12 @@ def get_net(
         k = growth rate (LogFunc)
         gridsize = number of network nodes in the grid excluded inputs
     """
-    weights = weights.T
+    try:
+        state_domain = [-1, 1] if x0 == 0 else [0, 1]
+    except ValueError:
+        print("State domain unrecognized")
+
+    # weights = weights.T
     node_indices = [n for n in range(len(weights))]
     nodes_n = len(node_indices)
 
@@ -201,7 +205,7 @@ def get_net(
     cm = np.array(
         [[np.float(1) if w else 0 for w in weights[n]] for n in range(len(weights))]
     )
-    cm = cm.T
+    # cm = cm.T
     network = pyphi.Network(tpm, cm, node_labels)
 
     if pickle_network:
@@ -362,7 +366,7 @@ def get_nearest_neighbor_weights(self_loop_value):
     return l
 
 
-def get_pareto_weights(n_nodes, g, normalize=False):
+def get_pareto_weights(n_nodes, g, normalize=True):
     weights = [1 / (u ** g) for u in range(1, n_nodes)]
     if normalize:
         weights = [w / sum(weights) for w in weights]
@@ -386,11 +390,21 @@ def get_toroidal_pareto_grid_weights(n_nodes, g):
         weights = [w / sum(weights) for w in weights]
         s, h, m = [weights[0], weights[1], weights[3]]
         return s, h, m
+    elif n_nodes == 6:
+        weights = [weights[i] for i in [0, 1, 1, 2, 2, 3]]
+        weights = [w / sum(weights) for w in weights]
+        s, h, m, n = [weights[0], weights[1], weights[3], weights[5]]
+        return s, h, m, n
     elif n_nodes == 7:
         weights = [weights[i] for i in [0, 1, 1, 2, 2, 3, 3]]
         weights = [w / sum(weights) for w in weights]
         s, h, m, w = [weights[0], weights[1], weights[3], weights[5]]
         return s, h, m, w
+    elif n_nodes == 8:
+        weights = [weights[i] for i in [0, 1, 1, 2, 2, 3, 3, 4]]
+        weights = [w / sum(weights) for w in weights]
+        s, m, n, l, w = [weights[0], weights[1], weights[3], weights[5], weights[7]]
+        return s, m, n, l, w
 
 
 class ToroidalGrid:
