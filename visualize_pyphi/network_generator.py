@@ -143,7 +143,7 @@ def get_net(
     except ValueError:
         print("State domain unrecognized")
 
-    # weights = weights.T
+    weights = weights.T
     node_indices = [n for n in range(len(weights))]
     nodes_n = len(node_indices)
 
@@ -205,7 +205,7 @@ def get_net(
     cm = np.array(
         [[np.float(1) if w else 0 for w in weights[n]] for n in range(len(weights))]
     )
-    # cm = cm.T
+    cm = cm.T
     network = pyphi.Network(tpm, cm, node_labels)
 
     if pickle_network:
