@@ -166,7 +166,7 @@ def get_edge_color(relation, colorcode_2_relations):
     if colorcode_2_relations:
         purview0 = list(relation.relata.purviews)[0]
         purview1 = list(relation.relata.purviews)[1]
-        relation_purview = relation.purview
+        relation_purview = tuple(relation.purview)
         # Isotext (mutual full-overlap)
         if purview0 == purview1 == relation_purview:
             return "fuchsia"
@@ -222,7 +222,7 @@ def plot_ces(
     axes_range=None,
     eye_coordinates=(0, 25, 0.25),
     hovermode="x",
-    plot_dimensions=(1400, 800),
+    plot_dimensions=(2440, 1440),
     png_resolution=None,
     save_plot_to_html=True,
     save_plot_to_png=False,
@@ -240,6 +240,9 @@ def plot_ces(
     chain_width=3,
     fig=None,
     matteo_edge_color=True,
+    purview_color=False,
+    mesh_legendgroup="",
+    edge_color="red",
 ):
     if not isinstance(ces, FlatCauseEffectStructure):
         raise ValueError(f"ces must be a FlatCauseEffectStructure; got {type(ces)}")
@@ -513,7 +516,7 @@ def plot_ces(
         showlegend=True,
         textfont=dict(
             size=purview_labels_size,
-            color="red",
+            color=purview_color if purview_color else "red",
         ),
         hoverinfo="text",
         hovertext=causes_hovertext,
@@ -534,7 +537,7 @@ def plot_ces(
         showlegend=True,
         textfont=dict(
             size=purview_labels_size,
-            color="green",
+            color=purview_color if purview_color else "green",
         ),
         hoverinfo="text",
         hovertext=effects_hovertext,
@@ -648,7 +651,7 @@ def plot_ces(
                 relation_color = (
                     get_edge_color(relation, colorcode_2_relations)
                     if matteo_edge_color
-                    else "black"
+                    else edge_color
                 )
 
                 legend_mechanisms = []
@@ -736,7 +739,9 @@ def plot_ces(
 
                 triangle_three_relation_trace = go.Mesh3d(
                     visible=show_mesh,
-                    legendgroup="All 3-Relations",
+                    legendgroup=mesh_legendgroup
+                    if mesh_legendgroup
+                    else "All 3-Relations",
                     showlegend=True if r == 0 else False,
                     # x, y, and z are the coordinates of vertices
                     x=x_purview,
