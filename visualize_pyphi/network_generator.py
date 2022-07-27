@@ -1,3 +1,4 @@
+from codecs import latin_1_decode
 import pyphi
 import pickle
 import numpy as np
@@ -122,7 +123,9 @@ def get_net(
     node_labels=None,
     network_name=None,
     pickle_network=True,
+    state_domain=[-1, 1],
 ):
+
     """
     Returns a pyphi network (Logistic activation function)
 
@@ -138,10 +141,6 @@ def get_net(
         k = growth rate (LogFunc)
         gridsize = number of network nodes in the grid excluded inputs
     """
-    try:
-        state_domain = [-1, 1] if x0 == 0 else [0, 1]
-    except ValueError:
-        print("State domain unrecognized")
 
     weights = weights.T
     node_indices = [n for n in range(len(weights))]
@@ -150,7 +149,7 @@ def get_net(
     if node_labels is None:
         node_labels = [string.ascii_uppercase[n] for n in range(len(weights))]
 
-    mechs_pset = list(pyphi.utils.powerset(range(nodes_n), nonempty=True))
+    # mechs_pset = list(pyphi.utils.powerset(range(nodes_n), nonempty=True))
     states = list(pyphi.utils.all_states(nodes_n))
     tpm = np.zeros([2 ** nodes_n, nodes_n])
 
@@ -159,6 +158,7 @@ def get_net(
             state = [2 * v - 1 for v in states[s]]
         else:
             state = states[s]
+
         tpm_line = []
 
         for z in node_indices:
@@ -181,6 +181,7 @@ def get_net(
                     k,
                     x0,
                 )
+
             # r = Rand
             elif mech_func[z] == "r":
                 val = 0.5
@@ -210,6 +211,56 @@ def get_net(
 
     if pickle_network:
         save_network(network, network_name)
+
+    return network
+
+
+def get_node_tpms(
+    mech_func,
+    weights,
+    node_labels=None,
+    state_domain=[0, 1],
+):
+
+    node_indices = [n for n in range(len(weights))]
+    nodes_n = len(node_indices)
+
+    if node_labels is None:
+        node_labels = [string.ascii_uppercase[n] for n in range(len(weights))]
+
+    states = list(pyphi.utils.all_states(nodes_n))
+
+    tpm = np.zeros([2 ** nodes_n, nodes_n])
+
+    for s in range(len(states)):
+        if state_domain == [-1, 1]:
+            state = [2 * v - 1 for v in states[s]]
+        else:
+            state = states[s]
+
+        tpm_line = []
+
+        for z in node_indices:
+            if mech_func[z] == "l":
+                val = LogFunc(
+                    sum(state * np.array([weights[z][n] for n in node_indices])),
+                    l,
+                    k,
+                    x0,
+                )
+
+            else:
+                raise NameError("Mechanism function not recognized")
+
+            tpm_line.append(val)
+
+        tpm[s] = tuple(tpm_line)
+
+    cm = np.array(
+        [[np.float(1) if w else 0 for w in weights[n]] for n in range(len(weights))]
+    )
+    cm = cm.T
+    network = pyphi.Network(tpm, cm, node_labels)
 
     return network
 
