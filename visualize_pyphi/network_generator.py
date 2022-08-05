@@ -115,14 +115,14 @@ def get_net(
     exp=None,
     th=None,
     ths=None,
-    l=None,
+    l=1,
     k=None,
-    x0=None,
+    x0=0,
     input_nodes=None,
     input_modifier=None,
     node_labels=None,
     network_name=None,
-    pickle_network=True,
+    pickle_network=False,
     state_domain=[-1, 1],
 ):
 
@@ -138,10 +138,9 @@ def get_net(
         th = threshold (NR) or curve steepness (MvsG)
         x0 = midpoint value (LogFunc)
         l = max value (LogFunc)
-        k = growth rate (LogFunc)
+        k = growth rate / determinism (LogFunc)
         gridsize = number of network nodes in the grid excluded inputs
     """
-
     weights = weights.T
     node_indices = [n for n in range(len(weights))]
     nodes_n = len(node_indices)
