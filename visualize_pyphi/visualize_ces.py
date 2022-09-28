@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from scipy.special import comb
 import math
 from pyphi.models.subsystem import FlatCauseEffectStructure
+import string
 
 CAUSE = pyphi.Direction.CAUSE
 EFFECT = pyphi.Direction.EFFECT
@@ -243,6 +244,7 @@ def plot_ces(
     purview_color=False,
     mesh_legendgroup="",
     edge_color="red",
+    epicycle_radius=0.2,
 ):
     if not isinstance(ces, FlatCauseEffectStructure):
         raise ValueError(f"ces must be a FlatCauseEffectStructure; got {type(ces)}")
@@ -299,7 +301,7 @@ def plot_ces(
         purviews.count(p) if purviews.count(p) > 0 else 0 for p in all_purviews
     ]
     epicycles = [
-        regular_polygon(n, center=(e[0], e[1]), z=e[2], radius=cause_effect_distance)
+        regular_polygon(n, center=(e[0], e[1]), z=e[2], radius=epicycle_radius)
         for e, n in zip(floor_vertices, num_purviews)
         if n > 0
     ]
@@ -727,8 +729,9 @@ def plot_ces(
 
             cmap = plt.cm.get_cmap(surface_colorscale)
             color_picker = np.linspace(0, 1, len(triangles))
-            random.Random(len(triangles)).shuffle(color_picker)
 
+            random.Random(len(triangles)).shuffle(color_picker)
+            opacities = three_relations_sizes
             for r, triangle in tqdm(
                 enumerate(triangles), desc="Computing triangles", total=len(triangles)
             ):
@@ -766,7 +769,7 @@ def plot_ces(
                     ],
                     intensity=[1.0],
                     intensitymode="cell",
-                    opacity=three_relations_sizes[r],
+                    opacity=opacities[r],
                     showscale=False,
                     name="All 3-Relations",
                     hoverinfo="text",
