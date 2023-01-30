@@ -105,7 +105,7 @@ def label_purview(mice, state=False):
 
 
 def hovertext_purview(mice):
-    return f"Distinction: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.specified_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'specified_state') else list(mice.specified_state[0])}"
+    return f"Distinction: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.specified_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'specified_state') else list(mice.specified_state.state)}"
 
 
 def hovertext_relation(relation):
@@ -113,7 +113,7 @@ def hovertext_relation(relation):
 
     relata_info = "".join(
         [
-            f"<br>Distinction {n}: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.specified_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'specified_state') else list(mice.specified_state[0])}<br>"
+            f"<br>Distinction {n}: {label_mechanism(mice)}<br>Direction: {mice.direction.name}<br>Purview: {label_purview(mice)}<br>φ = {phi_round(mice.phi)}<br>State: {[rel.specified_state(mice)[0][i] for i in mice.purview] if not hasattr(mice,'specified_state') else list(mice.specified_state.state)}<br>"
             for n, mice in enumerate(relata)
         ]
     )
@@ -134,6 +134,16 @@ def normalize_sizes(min_size, max_size, elements):
         return min_size + (
             ((phis - min_phi) * (max_size - min_size)) / (max_phi - min_phi)
         )
+
+
+def normalize_values(bottom, top, values):
+    min_val = values.min()
+    max_val = values.max()
+    # Add exception in case all purviews have the same phi (e.g. monad case)
+    if max_val == min_val:
+        return [(bottom + max_val) / 2 for x in values]
+    else:
+        return bottom + (((values - min_val) * (top - bottom)) / (max_val - min_val))
 
 
 def chunk_list(my_list, n):
@@ -203,6 +213,7 @@ def plot_ces(
     base_height_scale=2.7,
     base_z_offset=0,
     base_width_scale=0.8,
+    base_width_scales=[1, 1, 1, 1, 1],
     base_opacity=0.90,
     base_rotation=math.pi,
     base_intensity=0.9,
@@ -233,8 +244,8 @@ def plot_ces(
     show_mesh=True,
     show_edges=True,
     show_labels=True,
-    show_mechanism_labels=False,
-    show_purview_labels=False,
+    show_mechanism_labels=True,
+    show_purview_labels=True,
     colorcode_2_relations=True,
     show_legend=True,
     transparent_background=False,
@@ -245,6 +256,9 @@ def plot_ces(
     mesh_legendgroup="",
     edge_color="red",
     epicycle_radius=0.2,
+    surface_color_range=[0, 1],
+    png_scale=2,
+    relate_distinctions=True,
 ):
     if not isinstance(ces, FlatCauseEffectStructure):
         raise ValueError(f"ces must be a FlatCauseEffectStructure; got {type(ces)}")
@@ -326,13 +340,16 @@ def plot_ces(
     ######
     # Define the coordinates for all mechanisms
     ######
+    if not base_width_scales:
+        base_width_scales = [base_width_scale] * N_units
+
     base = [
         np.array(
             regular_polygon(
                 int(comb(N_units, k)),
                 center=(0, 0),
                 z=((k / N_units) * base_height_scale) + base_z_offset,
-                scale=base_width_scale,
+                scale=base_width_scales[k - 1],
                 angle=base_rotation,
             )
         )
@@ -350,9 +367,15 @@ def plot_ces(
     y_mechanism = np.array([base_coordinates[mice.mechanism][1] for mice in ces])
     z_mechanism = np.array([base_coordinates[mice.mechanism][2] for mice in ces])
 
+    # print(x_mechanism)
+
     x_purview = purview_coordinates[:, 0]
     y_purview = purview_coordinates[:, 1]
     z_purview = purview_coordinates[:, 2]
+
+    x_purview_rels = x_purview
+    y_purview_rels = y_purview
+    z_purview_rels = z_purview
 
     #
     if user_mechanism_coordinates is not None:
@@ -364,6 +387,11 @@ def plot_ces(
         x_purview = user_purview_coordinates[0, :]
         y_purview = user_purview_coordinates[1, :]
         z_purview = user_purview_coordinates[2, :]
+
+    if relate_distinctions:
+        x_purview_rels = x_mechanism
+        y_purview_rels = y_mechanism
+        z_purview_rels = z_mechanism
 
     # create the link coordinates
     link_coordinates = (
@@ -483,7 +511,7 @@ def plot_ces(
             mice,
             state=list(rel.specified_state(mice)[0])
             if not hasattr(mice, "specified_state")
-            else list(mice.specified_state[0])
+            else list(mice.specified_state.state)
             if state_as_lettercase
             else False,
         )
@@ -507,7 +535,7 @@ def plot_ces(
 
     # Create labels for cause purviews
     labels_cause_purviews_trace = go.Scatter3d(
-        visible=(show_labels or show_purview_labels),
+        visible=show_purview_labels,
         x=causes_x,
         y=causes_y,
         z=causes_z,
@@ -528,7 +556,7 @@ def plot_ces(
 
     # effects
     labels_effect_purviews_trace = go.Scatter3d(
-        visible=(show_labels or show_purview_labels),
+        visible=show_purview_labels,
         x=effects_x,
         y=effects_y,
         z=effects_z,
@@ -625,9 +653,9 @@ def plot_ces(
             # Convert to DataFrame
             edges = pd.DataFrame(
                 dict(
-                    x=x_purview[edges],
-                    y=y_purview[edges],
-                    z=z_purview[edges],
+                    x=x_purview_rels[edges],
+                    y=y_purview_rels[edges],
+                    z=z_purview_rels[edges],
                 )
             )
 
@@ -692,14 +720,21 @@ def plot_ces(
             three_relation_orders = [
                 np.mean([len(rr.purview) for rr in r.relata]) for r in three_relations
             ]
-            three_relation_orders = [
-                o / max(three_relation_orders) for o in three_relation_orders
-            ]
-            three_relations_sizes = normalize_sizes(
-                surface_size_range[0] * surface_opacity,
-                surface_size_range[1] * surface_opacity / 2,
-                three_relations,
+            # three_relation_orders = [
+            #     o / max(three_relation_orders) for o in three_relation_orders
+            # ]
+
+            three_relation_orders = normalize_values(
+                surface_size_range[0],
+                surface_size_range[1],
+                np.array(three_relation_orders),
             )
+
+            # three_relations_sizes = normalize_sizes(
+            #     surface_size_range[0] * surface_opacity,
+            #     surface_size_range[1] * surface_opacity / 2,
+            #     three_relations,
+            # )
 
             # Extract triangle indices
             i, j, k = zip(*triangles)
@@ -728,28 +763,32 @@ def plot_ces(
             fig.add_trace(triangle_three_relation_trace)"""
 
             cmap = plt.cm.get_cmap(surface_colorscale)
-            color_picker = np.linspace(0, 1, len(triangles))
+            color_picker = np.linspace(
+                surface_color_range[0], surface_color_range[1], len(triangles)
+            )
 
             random.Random(len(triangles)).shuffle(color_picker)
-            opacities = three_relations_sizes
+
             for r, triangle in tqdm(
                 enumerate(triangles), desc="Computing triangles", total=len(triangles)
             ):
                 relation = three_relations[r]
                 relation_nodes = list(flatten(relation.mechanisms))
+                # print(three_relation_orders[r], "\n", three_relations[r].relata)
 
                 legend_mechanisms = []
 
                 triangle_three_relation_trace = go.Mesh3d(
+                    autocolorscale=False,
                     visible=show_mesh,
                     legendgroup=mesh_legendgroup
                     if mesh_legendgroup
                     else "All 3-Relations",
                     showlegend=True if r == 0 else False,
                     # x, y, and z are the coordinates of vertices
-                    x=x_purview,
-                    y=y_purview,
-                    z=z_purview,
+                    x=x_purview_rels,
+                    y=y_purview_rels,
+                    z=z_purview_rels,
                     # i, j, and k are the vertices of triangles
                     i=[i[r]],
                     j=[j[r]],
@@ -767,9 +806,9 @@ def plot_ces(
                         ],
                         [1, "blue"],
                     ],
-                    intensity=[1.0],
+                    intensity=[three_relation_orders[r]],
                     intensitymode="cell",
-                    opacity=opacities[r],
+                    opacity=max(0, three_relation_orders[r]),
                     showscale=False,
                     name="All 3-Relations",
                     hoverinfo="text",
@@ -872,7 +911,7 @@ def plot_ces(
             save_plot_to_png,
             width=png_resolution[0],
             height=png_resolution[1],
-            scale=1,
+            scale=png_scale,
             #           transparent=transparent_background,
         )
         print(f"Fig saved to {save_plot_to_png}")
