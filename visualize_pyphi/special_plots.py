@@ -123,20 +123,22 @@ def plot_effect_of_MIP_newer(
     unaffected_relations,
     figure_name="effect_of_MIP",
     common_kwargs=dict(),
-    uncommon_kwargs=[dict(), dict(), dict()],
+    uncommon_kwargs=[dict(), dict(), dict(), dict()],
 ):
 
     touched_distinctions = [
         mice for mice in sep(ces) if mice not in sep(unaffected_distinctions)
     ]
-    touched_relations = [r for r in relations if r not in unaffected_relations]
+    touched_relations = [
+        r for r in relations if r not in unaffected_relations and len(r.relata) < 4
+    ]
 
     touched_ces_expanded = list(
         set([mice for relation in relations for mice in relation.relata])
     )
 
-    cess = [sep(ces), sep(unaffected_distinctions), touched_distinctions]
-    relations = [relations, unaffected_relations, []]
+    cess = [sep(ces), sep(unaffected_distinctions), sep(ces), sep(touched_distinctions)]
+    relations = [relations, unaffected_relations, touched_relations, []]
 
     default_common_kwargs = dict(network_name=figure_name, show_legend=False)
     default_common_kwargs.update(common_kwargs)
@@ -144,29 +146,55 @@ def plot_effect_of_MIP_newer(
     default_uncommon_kwargs = [
         dict(
             surface_colorscale="Blues",
-            surface_opacity=0.3,
+            surface_opacity=0.0,
             show_labels=False,
             show_links=False,
             show_edges=False,
+            show_mesh=False,
+            show_chains=False,
+            show_mechanism_base=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
+        ),
+        dict(
+            surface_colorscale="Blues",
+            surface_opacity=0.99,
+            surface_size_range=(0.99, 0.99),
+            show_labels=False,
+            show_chains=False,
+            show_mesh=False,
+            show_mechanism_base=False,
+            show_edges=False,
+            matteo_edge_color=True,
+            show_links=True,
             save_plot_to_png=False,
             save_plot_to_html=False,
         ),
         dict(
             surface_colorscale="Greys",
-            surface_opacity=0.9,
+            surface_opacity=0.01,
+            surface_size_range=(0.99, 0.99),
+            show_edges=True,
+            show_mesh=True,
             show_labels=False,
+            matteo_edge_color=False,
             show_chains=False,
             show_mechanism_base=False,
-            matteo_edge_color=False,
-            show_links=False,
+            save_plot_to_png=False,
+            save_plot_to_html=False,
         ),
         dict(
             surface_colorscale="Greys",
-            surface_opacity=0.01,
+            surface_opacity=0.0,
             show_edges=False,
+            show_mesh=False,
             show_labels=True,
+            matteo_edge_color=False,
             show_chains=False,
             show_mechanism_base=False,
+            save_plot_to_png=False,
+            save_plot_to_html=True,
+            purview_color="black",
         ),
     ]
     default_uncommon_kwargs = [

@@ -16,8 +16,17 @@ from pyphi.models.subsystem import FlatCauseEffectStructure as sep
 import matplotlib.pyplot as plt
 from IPython.display import Audio, display
 import igraph as ig
-import sys
+import json
+import os
+
+# import sys
 import plotly.express as px
+from pathlib import Path
+import sys
+
+lib_dir = Path("/home/mgrasso/projects/")
+sys.path.append(str(lib_dir))
+# from new_analytical_solution import sum_phi, num_relations
 
 
 def done():
@@ -119,12 +128,12 @@ def ces2df(ces, state_as_lettercase=True):
                 lettercase_state(
                     d.cause_purview,
                     node_labels=s.node_labels,
-                    state=d.cause.specified_state.tolist()[0],
+                    state=d.cause.specified_state.state,
                 ),
                 lettercase_state(
                     d.effect_purview,
                     node_labels=s.node_labels,
-                    state=d.effect.specified_state.tolist()[0],
+                    state=d.effect.specified_state.state,
                 ),
                 d.phi,
             )
@@ -229,6 +238,11 @@ def pklthis(this, name):
 def jsonthis(this, name):
     with open(name, "wt") as f:
         pyphi.jsonify.dump(this, f)
+
+
+def loadjson(name):
+    with open(name, "rt") as f:
+        return pyphi.jsonify.load(f)
 
 
 def loadpkl(name):
@@ -911,7 +925,6 @@ def min_hybrid_cut(subsystem, normalization=False):
     return min_phi, min_cut, sys_effect_state, sys_cause_state
 
 
-
 from itertools import product
 
 
@@ -1095,13 +1108,13 @@ def get_contiguous_nodes(n):
 
 def print_sias(sias, act_val=[], mechs_func=[], weights=[], state=[], precision=5):
     if weights:
-        print(f'weights:\n{weights}\n')
+        print(f"weights:\n{weights}\n")
     if act_val:
-        print(f'activation value: {act_val}')
+        print(f"activation value: {act_val}")
     if mechs_func:
-        print(f'mechs: {mechs_func}')
+        print(f"mechs: {mechs_func}")
     if state:
-        print(f'state: {state}')
+        print(f"state: {state}")
 
     for sia in sias:
         print(
@@ -1119,14 +1132,16 @@ E-state = {sia.system_state.effect}
 
 Partition:
 {sia.partition}
-""")
+"""
+        )
+
 
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-def heatmap(data, row_labels, col_labels, ax=None,
-            cbar_kw={}, cbarlabel="", **kwargs):
+
+def heatmap(data, row_labels, col_labels, ax=None, cbar_kw={}, cbarlabel="", **kwargs):
     """
     Create a heatmap from a numpy array and two lists of labels.
 
@@ -1155,36 +1170,40 @@ def heatmap(data, row_labels, col_labels, ax=None,
     # Plot the heatmap
     im = ax.imshow(data, **kwargs)
 
-#     # Create colorbar
-#     cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
-#     cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
+    #     # Create colorbar
+    #     cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
+    #     cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
 
     # Show all ticks and label them with the respective list entries.
     ax.set_xticks(np.arange(data.shape[1]), labels=col_labels)
     ax.set_yticks(np.arange(data.shape[0]), labels=row_labels)
 
     # Let the horizontal axes labeling appear on top.
-    ax.tick_params(top=True, bottom=False,
-                   labeltop=True, labelbottom=False)
+    ax.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
 
     # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
-             rotation_mode="anchor")
+    plt.setp(ax.get_xticklabels(), rotation=-30, ha="right", rotation_mode="anchor")
 
     # Turn spines off and create white grid.
     ax.spines[:].set_visible(False)
 
-    ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
-    ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
-    ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
+    ax.set_xticks(np.arange(data.shape[1] + 1) - 0.5, minor=True)
+    ax.set_yticks(np.arange(data.shape[0] + 1) - 0.5, minor=True)
+    ax.grid(which="minor", color="w", linestyle="-", linewidth=3)
     ax.tick_params(which="minor", bottom=False, left=False)
 
-    return im#, cbar
+    return im  # , cbar
 
 
-def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
-                     textcolors=("black", "white"),
-                     threshold=None, **textkw):
+def annotate_heatmap(
+    im,
+    data=None,
+    valfmt="{x:.2f}",
+    textcolors=("black", "white"),
+    threshold=None,
+    precision="{:.1f}",
+    **textkw,
+):
     """
     A function to annotate a heatmap.
 
@@ -1217,12 +1236,11 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
     if threshold is not None:
         threshold = im.norm(threshold)
     else:
-        threshold = im.norm(data.max())/2.
+        threshold = im.norm(data.max()) / 2.0
 
     # Set default alignment to center, but allow it to be
     # overwritten by textkw.
-    kw = dict(horizontalalignment="center",
-              verticalalignment="center")
+    kw = dict(horizontalalignment="center", verticalalignment="center")
     kw.update(textkw)
 
     # Get the formatter in case a string is supplied
@@ -1235,20 +1253,368 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
             kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
-            text = im.axes.text(j, i, valfmt(data[i, j], None), **kw)
+            text = im.axes.text(j, i, precision.format(data[i, j], None), **kw)
             texts.append(text)
     return texts
 
-def plot_tpm(tpm,font_size=20, png_filename=''):
-    tpm = pyphi.convert.state_by_node2state_by_state(tpm.squeeze())
 
-    fig, ax = plt.subplots(1,1,figsize=(10,10))
+def plot_tpm(
+    tpm,
+    font_size=20,
+    filename="",
+    sbs=True,
+    text=True,
+    precision="{:.1f}",
+    dpi=200,
+):
+    if sbs:
+        tpm = pyphi.convert.state_by_node2state_by_state(tpm.squeeze())
 
-    im = heatmap(tpm, [], [], ax=ax,
-                       cmap="Greys")
-    texts = annotate_heatmap(im)
-    plt.rc('font', size=font_size)
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
 
-    if png_filename:
-        plt.savefig(f'{png_filename}.png')
+    im = heatmap(tpm, [], [], ax=ax, cmap="Greys")
+    if text:
+        texts = annotate_heatmap(im, precision=precision)
+        plt.rc("font", size=font_size)
+
+    if filename:
+        plt.savefig(f"{filename}", dpi=dpi)
     return fig
+
+
+def print_repertoire(sia, subsystem, direction="cause", constrained=True):
+    states = list(all_states(len(sia.node_indices)))
+    if direction == "cause":
+        if constrained:
+            print("Cause repertoire:")
+            print(
+                pd.DataFrame(
+                    [sia.repertoire_cause[state] for state in states],
+                    index=states,
+                    columns=["p"],
+                )
+            )
+        else:
+            print("Cause unconstrained repertoire:")
+            print(
+                pd.DataFrame(
+                    [
+                        subsystem.unconstrained_forward_cause_repertoire(
+                            subsystem.node_indices, subsystem.node_indices
+                        )[state]
+                        for state in states
+                    ],
+                    index=states,
+                    columns=["q"],
+                )
+            )
+
+    if direction == "effect":
+        if constrained:
+            print("Effect repertoire:")
+            print(
+                pd.DataFrame(
+                    [sia.repertoire_effect[state] for state in states],
+                    index=states,
+                    columns=["p"],
+                )
+            )
+        else:
+            print("Effect unconstrained repertoire:")
+            print(
+                pd.DataFrame(
+                    [
+                        subsystem.unconstrained_forward_effect_repertoire(
+                            subsystem.node_indices, subsystem.node_indices
+                        )[state]
+                        for state in states
+                    ],
+                    index=states,
+                    columns=["q"],
+                )
+            )
+
+
+def autolabel(rects):
+    """
+    Attach a text label above each bar displaying its height
+    """
+    for rect in rects:
+        height = rect.get_height()
+        ax.text(
+            rect.get_x() + rect.get_width() / 2.0,
+            1.05 * height,
+            "%d" % int(height),
+            ha="center",
+            va="bottom",
+        )
+
+
+def plot_repertoires(sia, subsystem, figsize=(15, 5)):
+    states = list(pyphi.utils.all_states(len(sia.node_indices)))
+    constrained = np.round(
+        [
+            [
+                subsystem.forward_cause_repertoire(
+                    subsystem.node_indices, subsystem.node_indices
+                )[state]
+                for state in states
+            ],
+            [
+                subsystem.cause_repertoire(
+                    subsystem.node_indices, subsystem.node_indices
+                )[state]
+                for state in states
+            ],
+            [
+                subsystem.forward_effect_repertoire(
+                    subsystem.node_indices, subsystem.node_indices
+                )[state]
+                for state in states
+            ],
+        ],
+        2,
+    )
+    unconstrained = np.round(
+        [
+            [
+                subsystem.unconstrained_forward_cause_repertoire(
+                    subsystem.node_indices, subsystem.node_indices
+                )[state]
+                for state in states
+            ],
+            [
+                subsystem.unconstrained_forward_cause_repertoire(
+                    subsystem.node_indices, subsystem.node_indices
+                )[state]
+                for state in states
+            ],
+            [
+                subsystem.unconstrained_forward_effect_repertoire(
+                    subsystem.node_indices, subsystem.node_indices
+                )[state]
+                for state in states
+            ],
+        ],
+        2,
+    )
+    p_colors = ["red", "red", "green"]
+    states = [
+        strip_punct(str(s)) for s in pyphi.utils.all_states(len(sia.node_indices))
+    ]
+
+    for ps, qs, p_color in zip(constrained, unconstrained, p_colors):
+        # set width of bar
+        barWidth = 0.5
+        fig, ax = plt.subplots(figsize=figsize)
+
+        # Set position of bar on X axis
+        br1 = np.arange(len(ps))
+        br2 = [x + barWidth / 2 for x in br1]
+
+        # Make the plot
+        bar1 = ax.bar(
+            br1,
+            ps,
+            color=p_color,
+            width=barWidth,
+            edgecolor=p_color,
+            label="Constrained repertoire",
+        )
+
+        bar2 = ax.bar(
+            br2,
+            qs,
+            color="grey",
+            width=barWidth,
+            edgecolor="grey",
+            label="Unconstrained repertoire",
+        )
+
+        # Adding Xticks
+        plt.xlabel("states", fontsize=20)
+        plt.ylabel("probability", fontsize=20)
+        plt.xticks(
+            [r + barWidth / 4 for r in range(len(ps))],
+            states,
+            rotation="vertical",
+            fontdict=dict(fontsize=20),
+        )
+        plt.yticks(
+            np.round(np.linspace(0, 1, 11), 1),
+            np.round(np.linspace(0, 1, 11), 1),
+            fontdict=dict(fontsize=20),
+        )
+
+        for i, repertoire, color in zip(
+            [-barWidth / 2, barWidth / 2], [ps, qs], [p_color, "grey"]
+        ):
+            for index, data in enumerate(repertoire):
+                plt.text(
+                    x=index + i,
+                    y=data,
+                    s=f"{data}",
+                    fontdict=dict(fontsize=15, color=color),
+                )
+
+        plt.tight_layout()
+        plt.legend(prop={"size": 20})
+
+        plt.show()
+
+
+def print_sias_short(sias):
+    for sia in sias:
+        print(
+            f"""
+        nodes = {sia.node_indices}
+        phi_s = {sia.phi}
+        ii_c = {sia.system_state.intrinsic_information[pyphi.Direction.CAUSE]}
+        ii_e = {sia.system_state.intrinsic_information[pyphi.Direction.EFFECT]}
+        {sia.partition}
+        """
+        )
+
+
+def normalize_values(min_size, max_size, values, min_val=None, max_val=None):
+    if type(values) != np.ndarray:
+        values = np.array(values)
+    if min_val is None:
+        min_val = min(values)
+    if max_val is None:
+        max_val = max(values)
+    if max_val == min_val:
+        return [(min_size + max_size) / 2 for x in values]
+    else:
+        return min_size + (
+            ((values - min_val) * (max_size - min_size)) / (max_val - min_val)
+        )
+
+
+def find_spots(ces):
+    spots = []
+    for d in ces:
+        selfrel = set(d.cause_purview).intersection(set(d.effect_purview))
+        if len(selfrel) > 1:
+            spots.append(make_label(selfrel))
+    return sorted(sorted(list(set(spots))), key=len)
+
+
+def get_contiguous_mechs(n):
+    return [
+        x
+        for x in sorted(
+            sorted(
+                set(
+                    list(
+                        toolz.concat(
+                            list(
+                                (
+                                    tuple(tuple(range(i, j)) for i in range(n))
+                                    for j in range(n + 1)
+                                )
+                            )
+                        )
+                    )
+                )
+            ),
+            key=len,
+        )
+        if x
+    ]
+
+
+# def jsonthis(this, path):
+#     with open(path, "w") as f:
+#         pyphi.jsonify.dump(this, f)
+
+
+# def loadjson(path):
+#     with open(path, "r") as f:
+#         return pyphi.jsonify.load(f)
+
+
+# This works only for Matteo:
+import sys
+from pathlib import Path
+
+PROJECT_DIR = Path("/home/mgrasso/")
+sys.path.append(str(PROJECT_DIR))
+import phiplot
+
+# from phiplot.new_demo_of_time import new_demo_of_time
+from IPython.display import Image, display, HTML
+
+
+# def analyze_data(pkldir, fig_width=800):
+#     print(pkldir)
+#     pickles = glob.glob(f"{pkldir}/*")
+#     weights = glob.glob(f"{pkldir}/weights.pkl")
+#     if weights:
+#         weights = loadpkl(f"{pkldir}/weights.pkl")
+#         print(f"\nweights: \n{pd.DataFrame(weights)}")
+#     else:
+#         print("no weights...")
+#     sias = glob.glob(f"{pkldir}/sias.pkl")
+#     if sias:
+#         sias = loadpkl(f"{pkldir}/sias.pkl")
+#         print(f"\nmax system: \n{max(sias)}")
+#     else:
+#         print("no sias...")
+#     subsystem = loadpkl(glob.glob(f"{pkldir}/subsystem.pkl")[0])
+#     ces = pyphi.models.CauseEffectStructure(
+#         [loadpkl(j) for j in pickles if "dist" in j], subsystem
+#     )
+#     if ces:
+#         print(ces2df(ces))
+#         relations = pyphi.relations.relations(
+#             subsystem, ces, computation="CONCRETE", max_degree=2
+#         )
+
+#         fig_dir = f"{pkldir}/figs"
+#         if not os.path.exists(fig_dir):
+#             os.makedirs(fig_dir)
+#         new_demo_of_time(subsystem, ces, relations, figure_dir=fig_dir)
+#         figs = sorted(glob.glob(f"{fig_dir}/*"))
+#         [display(Image(filename=f, width=fig_width)) for f in figs]
+#     else:
+#         print("no ces...")
+
+
+def count_data(pkldir):
+    print(pkldir)
+    pickles = glob.glob(f"{pkldir}/*")
+    subsystem = loadpkl(glob.glob(f"{pkldir}/subsystem.pkl")[0])
+    ces = pyphi.models.CauseEffectStructure(
+        [loadpkl(j) for j in pickles if "dist" in j], subsystem
+    )
+    if ces:
+        print(len(ces))
+    else:
+        print("no ces...")
+
+
+def repertoires_for_all_states(direction, subsystem, mechanism, purview):
+    """Return a state-by-state 'sub-TPM'.
+
+    Rows correspond to mechanims states, columns correspond to purview states,
+    and each row is the forward repertoire corresponding to that state of the
+    mechanism.
+    """
+    # Get subsystem states with all possible mechanism states
+    mechanism_states = list(pyphi.utils.all_states(len(mechanism)))
+    subsystem_states = np.tile(subsystem.state, (len(mechanism_states), 1))
+    subsystem_states[:, list(mechanism)] = mechanism_states
+
+    subsystems = [
+        pyphi.Subsystem(subsystem.network, nodes=subsystem.node_indices, state=state)
+        for state in subsystem_states
+    ]
+    return pyphi.ExplicitTPM(
+        [
+            pyphi.distribution.flatten(
+                subsystem.forward_repertoire(direction, mechanism, purview)
+            )
+            for subsystem in subsystems
+        ],
+    )
