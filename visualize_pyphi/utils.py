@@ -11,7 +11,7 @@ import ray
 import glob
 import toolz
 import numpy as np
-from visualize_pyphi import gist_bigphi, network_generator, visualize_ces
+from visualize_pyphi import network_generator, visualize_ces
 from pyphi.models.subsystem import FlatCauseEffectStructure as sep
 import matplotlib.pyplot as plt
 from IPython.display import Audio, display
@@ -87,9 +87,11 @@ def sepces2df(sepces, subsystem, csv_name=None):
     return df
 
 
-def ces2df(ces, state_as_lettercase=True):
-    s = ces[0].subsystem
-
+def ces2df(ces, state_as_lettercase=True, subsystem=None):
+    if not subsystem:
+        s = ces[0].subsystem
+    else:
+        s = subsystem
     if not state_as_lettercase:
         ces_list = [
             (
@@ -152,6 +154,27 @@ def ces2df(ces, state_as_lettercase=True):
         )
 
     return df
+
+
+def print_distinction(distinction, subsystem, decimals=3):
+    print(
+        lettercase_state(
+            distinction.mechanism,
+            node_labels=subsystem.network.node_labels,
+            state=subsystem.state,
+        ),
+        lettercase_state(
+            distinction.cause_purview,
+            node_labels=subsystem.node_labels,
+            state=distinction.cause.specified_state.state,
+        ),
+        lettercase_state(
+            distinction.effect_purview,
+            node_labels=subsystem.node_labels,
+            state=distinction.effect.specified_state.state,
+        ),
+        np.round(distinction.phi, decimals=decimals),
+    )
 
 
 def ces2df_supertexts(ces, subsystem):
@@ -1540,7 +1563,7 @@ from pathlib import Path
 
 PROJECT_DIR = Path("/home/mgrasso/")
 sys.path.append(str(PROJECT_DIR))
-import phiplot
+# import phiplot
 
 # from phiplot.new_demo_of_time import new_demo_of_time
 from IPython.display import Image, display, HTML
