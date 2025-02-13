@@ -2,7 +2,7 @@ import pandas as pd
 import string
 import itertools
 
-from pyrsistent import pset
+# from pyrsistent import pset
 import pyphi
 from joblib import Parallel, delayed
 import pickle
