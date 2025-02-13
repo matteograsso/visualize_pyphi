@@ -7,7 +7,7 @@ import pyphi
 from joblib import Parallel, delayed
 import pickle
 from tqdm.auto import tqdm
-import ray
+# import ray
 import glob
 import toolz
 import numpy as np
