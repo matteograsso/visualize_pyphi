@@ -15,7 +15,7 @@ from visualize_pyphi import network_generator, visualize_ces
 from pyphi.models.subsystem import FlatCauseEffectStructure as sep
 import matplotlib.pyplot as plt
 from IPython.display import Audio, display
-import igraph as ig
+# import igraph as ig
 import json
 import os
 
