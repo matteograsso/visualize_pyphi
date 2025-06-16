@@ -192,9 +192,7 @@ def plotLogFunc(l, k, x0, start=None, stop=None, num=101, title=None):
     return ax.plot(x, y)
 
 
-@ray.remote
-def compute_relations(subsystem, ces):
-    return pyphi.relations.relations(subsystem, ces)
+
 
 
 def lettercase_state(node_indices, node_labels=None, state=False):
